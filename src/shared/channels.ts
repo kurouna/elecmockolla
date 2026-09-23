@@ -1,0 +1,27 @@
+/** IPC channel names, used by main and preload only. */
+export const CH = {
+  getState: 'mockolla:get-state',
+  start: 'mockolla:start',
+  stop: 'mockolla:stop',
+  restart: 'mockolla:restart',
+  saveConfig: 'mockolla:save-config',
+  applyPreset: 'mockolla:apply-preset',
+  saveRules: 'mockolla:save-rules',
+  defaultRules: 'mockolla:default-rules',
+  testRules: 'mockolla:test-rules',
+  injectFault: 'mockolla:inject-fault',
+  clearFaults: 'mockolla:clear-faults',
+  resetStats: 'mockolla:reset-stats',
+  playground: 'mockolla:playground',
+  cancelPlayground: 'mockolla:cancel-playground',
+  loadGen: 'mockolla:load-gen',
+  stopLoadGen: 'mockolla:stop-load-gen',
+  openFolder: 'mockolla:open-folder',
+  copy: 'mockolla:copy',
+  setTheme: 'mockolla:set-theme',
+  // main -> renderer
+  snapshot: 'mockolla:snapshot',
+  status: 'mockolla:status',
+  playgroundEvent: 'mockolla:playground-event',
+  loadGenStatus: 'mockolla:load-gen-status',
+} as const

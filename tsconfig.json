@@ -1,0 +1,8 @@
+{
+  // Two independent TypeScript programs: tsconfig.node.json (core server, CLI,
+  // Electron main/preload, unit tests) and tsconfig.web.json (the Svelte UI).
+  // `npm run typecheck` checks both. tsc never emits; Vite and Node's type
+  // stripping run the sources.
+  "files": [],
+  "include": []
+}
