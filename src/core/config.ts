@@ -153,8 +153,7 @@ export function parseEnv(text: string): Record<string, string> {
     let value = (m[2] as string).trim()
     const q = value[0]
     if ((q === '"' || q === "'") && value.endsWith(q) && value.length >= 2) {
-      value = value.slice(1, -1)
-      if (q === '"') value = value.replace(/\\n/g, '\n').replace(/\\"/g, '"')
+      value = q === '"' ? unquote(value) : value.slice(1, -1)
     } else {
       const hash = value.indexOf(' #')
       if (hash >= 0) value = value.slice(0, hash).trim()
@@ -162,6 +161,17 @@ export function parseEnv(text: string): Record<string, string> {
     out[key] = value
   }
   return out
+}
+
+/** A double-quoted value: JSON string syntax (what serializeEnv writes), else the text as it is. */
+function unquote(quoted: string): string {
+  try {
+    const v: unknown = JSON.parse(quoted)
+    if (typeof v === 'string') return v
+  } catch {
+    // Hand-written, e.g. "C:\path": not JSON, so its backslashes are literal.
+  }
+  return quoted.slice(1, -1)
 }
 
 const bool = (v: string): boolean => /^(1|true|yes|on)$/i.test(v.trim())

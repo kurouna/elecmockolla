@@ -3,6 +3,7 @@
  * Type-only, like types.ts.
  */
 import type {
+  ExportFormat,
   FaultMode,
   MockConfig,
   Preset,
@@ -40,7 +41,13 @@ export interface AppState extends HostStatus {
   snapshot: Snapshot | null
 }
 
-export type SaveResult<T> = { ok: true; value: T } | { ok: false; error: string }
+/** `notice`: the file problems still left after the save, for the banner. */
+export type SaveResult<T> = { ok: true; value: T; notice?: string } | { ok: false; error: string }
+
+export type ExportResult =
+  | { status: 'saved'; path: string; count: number }
+  | { status: 'canceled' }
+  | { status: 'error'; error: string }
 
 export type PlaygroundApi = 'chat' | 'generate' | 'openai'
 
@@ -94,6 +101,8 @@ export interface MockollaApi {
   injectFault(mode: FaultMode, count: number): Promise<void>
   clearFaults(): Promise<void>
   resetStats(): Promise<void>
+  /** Saves these requests (ids from the history) to a file the user picks. */
+  exportRequests(format: ExportFormat, ids: number[]): Promise<ExportResult>
   playground(req: PlaygroundRequest): Promise<number>
   cancelPlayground(id: number): Promise<void>
   loadGen(opts: LoadGenOptions): Promise<void>

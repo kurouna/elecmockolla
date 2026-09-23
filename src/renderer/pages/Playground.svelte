@@ -1,4 +1,5 @@
 <script lang="ts">
+import { onDestroy } from 'svelte'
 import type { PlaygroundApi, PlaygroundEvent } from '../../shared/api.ts'
 import type { TestResult } from '../../shared/types.ts'
 import Icon from '../components/Icon.svelte'
@@ -30,6 +31,8 @@ let chunks = $state(0)
 /** The reply outgrew MAX_TEXT and its start is no longer shown. */
 let clipped = $state(false)
 let preview = $state<TestResult | null>(null)
+/** Only the newest preview is shown; an older one arriving late is dropped. */
+let previewSeq = 0
 
 /** Text kept on screen: a reply that never ends shows its latest part, not all of it. */
 const MAX_TEXT = 40_000
@@ -94,8 +97,10 @@ $effect(() => {
 // Which rule would answer, updated as you type.
 $effect(() => {
   const input = { prompt, system, model, think }
+  const seq = ++previewSeq
   const t = setTimeout(async () => {
-    preview = await api.testRules(input)
+    const r = await api.testRules(input)
+    if (seq === previewSeq) preview = r
   }, 150)
   return () => clearTimeout(t)
 })
@@ -119,6 +124,10 @@ async function send() {
   }
   running = id
 }
+
+onDestroy(() => {
+  if (running !== null) void api.cancelPlayground(running)
+})
 
 function cancel() {
   if (running !== null) void api.cancelPlayground(running)

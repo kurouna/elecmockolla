@@ -184,7 +184,7 @@ async function main(): Promise<void> {
 
   const recordingsPath = loaded.recordingsPath
   const recordings = loadRecordings(recordingsPath)
-  const server = new MockServer({ config, rules, recordings })
+  const server = new MockServer({ config, rules, recordings, appVersion: version() })
   server.onRecorded = (r) => {
     recordings.push(r)
     saveRecordings(recordingsPath, recordings)

@@ -53,6 +53,12 @@ export async function capturePages(
       await shot('recordings')
       await js(`document.querySelector('.top .seg button')?.click()`)
     }
+    if (name === 'settings') {
+      // The lower half: mock replies and recordings.
+      await js(`document.querySelector('#sec-replies')?.scrollIntoView()`)
+      await wait(300)
+      await shot('settings-2')
+    }
   }
   await open(0)
   await shot('dashboard-2')

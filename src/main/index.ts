@@ -1,8 +1,17 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { app, BrowserWindow, clipboard, type IpcMainInvokeEvent, ipcMain, shell } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  type IpcMainInvokeEvent,
+  ipcMain,
+  shell,
+} from 'electron'
 import { applyPreset, PRESETS, patchConfig, presetById } from '../core/config.ts'
 import { Engine } from '../core/engine.ts'
+import { EXPORT_FORMATS, exportRequests } from '../core/export.ts'
 import {
   initFiles,
   loadConfig,
@@ -11,18 +20,20 @@ import {
   saveEnv,
   saveRecordings,
   saveRules,
+  writeAtomic,
 } from '../core/files.ts'
 import { RecordingStore } from '../core/recordings.ts'
 import { defaultRules, FAULT_MODES, normalizeRules } from '../core/rules.ts'
 import type {
   AppState,
+  ExportResult,
   LoadGenOptions,
   PlaygroundApi,
   PlaygroundRequest,
   SaveResult,
 } from '../shared/api.ts'
 import { CH } from '../shared/channels.ts'
-import type { FaultMode, MockConfig, Recording, RulesFile } from '../shared/types.ts'
+import type { ExportFormat, FaultMode, MockConfig, Recording, RulesFile } from '../shared/types.ts'
 import { capturePages } from './capture.ts'
 import { LoadGenerator, Playground } from './client.ts'
 import { ServerHost } from './host.ts'
@@ -143,22 +154,49 @@ async function startServer() {
   return host.start(config, rules, recordings)
 }
 
+/** A rules or recordings path from the page: a .json file, resolved against HOME. */
+function jsonPath(p: string, what: string): string {
+  const abs = path.resolve(HOME, p)
+  if (path.extname(abs).toLowerCase() !== '.json')
+    throw new Error(`the ${what} file must be a .json file`)
+  return abs
+}
+
 async function applyConfig(next: MockConfig): Promise<SaveResult<MockConfig>> {
   try {
     const needsRestart = next.host !== config.host || next.port !== config.port
-    const rulesMoved = next.rulesPath !== config.rulesPath
-    const recordingsMoved = next.recordingsPath !== config.recordingsPath
+    // A moved file is read (and so validated) first: if it is not a rules or recordings
+    // file, nothing changes, and a later save cannot overwrite what the user pointed at.
+    const moved = {
+      rules:
+        next.rulesPath !== config.rulesPath
+          ? (() => {
+              const p = jsonPath(next.rulesPath, 'rules')
+              return { path: p, rules: loadRules(p) }
+            })()
+          : null,
+      recordings:
+        next.recordingsPath !== config.recordingsPath
+          ? (() => {
+              const p = jsonPath(next.recordingsPath, 'recordings')
+              return { path: p, recordings: loadRecordings(p) }
+            })()
+          : null,
+    }
     saveEnv(ENV_PATH, next)
     config = next
-    if (rulesMoved) {
-      rulesPath = path.resolve(HOME, next.rulesPath)
+    if (moved.rules) {
+      rulesPath = moved.rules.path
+      rules = moved.rules.rules
+      rulesError = ''
       initFiles(ENV_PATH, rulesPath)
-      rules = loadRules(rulesPath)
       host.setRules(rules)
     }
-    if (recordingsMoved) {
-      recordingsPath = path.resolve(HOME, next.recordingsPath)
-      readRecordings()
+    if (moved.recordings) {
+      recordingsPath = moved.recordings.path
+      recordings = moved.recordings.recordings
+      recordingsError = ''
+      recordingStore = new RecordingStore(recordings)
       host.setRecordings(recordings)
       send(CH.recordings, recordings)
     }
@@ -215,7 +253,7 @@ function registerIpc(): void {
       rules = next
       rulesError = ''
       host.setRules(rules)
-      return { ok: true, value: rules }
+      return { ok: true, value: rules, notice: notice() }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }
     }
@@ -294,6 +332,40 @@ function registerIpc(): void {
     void loadGen.run(host.serverUrl, models, toLoadGen(opts), (s) => send(CH.loadGenStatus, s))
   })
   handle(CH.stopLoadGen, () => loadGen.stop())
+  handle(CH.exportRequests, async (_e, format, ids): Promise<ExportResult> => {
+    if (!EXPORT_FORMATS.includes(format as ExportFormat))
+      return { status: 'error', error: 'unknown format' }
+    const wanted = new Set(
+      (Array.isArray(ids) ? ids : [])
+        .filter((x): x is number => Number.isInteger(x))
+        .slice(0, 5000),
+    )
+    const all = [...host.history, ...(host.snapshot?.active ?? [])]
+    const records = all.filter((r) => wanted.has(r.id)).sort((a, b) => a.id - b.id)
+    if (!records.length) return { status: 'error', error: 'no requests to export' }
+    const f = format as ExportFormat
+    const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)
+    const opts = {
+      title: 'elecmockolla',
+      defaultPath: path.join(app.getPath('downloads'), `elecmockolla-requests-${stamp}.${f}`),
+      filters: [
+        f === 'har' ? { name: 'HAR', extensions: ['har'] } : { name: 'JSON', extensions: ['json'] },
+      ],
+    }
+    const pick = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+    if (pick.canceled || !pick.filePath) return { status: 'canceled' }
+    try {
+      const body = exportRequests(f, records, {
+        url: host.serverUrl || host.getStatus().url,
+        version: __APP_VERSION__,
+        mode: config.mode,
+      })
+      writeAtomic(pick.filePath, body)
+      return { status: 'saved', path: pick.filePath, count: records.length }
+    } catch (e) {
+      return { status: 'error', error: e instanceof Error ? e.message : String(e) }
+    }
+  })
   handle(CH.openFolder, () => {
     void shell.openPath(HOME)
   })

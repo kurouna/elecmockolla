@@ -82,6 +82,14 @@ function phases(r: RequestRecord) {
           <button class:on={only === o} onclick={() => (only = o)}>{t(`req.only.${o}`)}</button>
         {/each}
       </div>
+      <div class="export" title={t('req.exportTitle', { n: rows.length })}>
+        <Icon name="save" size={13} />
+        {#each ['json', 'har'] as const as f (f)}
+          <button class="btn sm ghost" disabled={!rows.length} onclick={() => store.exportRequests(f, rows.map((r) => r.id))}
+            >{f.toUpperCase()}</button
+          >
+        {/each}
+      </div>
       <button class="btn sm ghost" title={t('req.clear')} onclick={() => store.resetStats()}><Icon name="trash" size={13} /></button>
     </div>
     <div class="table">
@@ -221,6 +229,13 @@ function phases(r: RequestRecord) {
     min-height: 0;
     overflow: hidden;
   }
+  .export {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding-left: 6px;
+    color: var(--muted);
+  }
   .toolbar {
     display: flex;
     gap: 8px;
@@ -239,6 +254,9 @@ function phases(r: RequestRecord) {
     padding-left: 8px;
     padding-right: 8px;
     font-size: 12px;
+  }
+  .table :global(th) {
+    white-space: nowrap;
   }
   .ell {
     max-width: 130px;

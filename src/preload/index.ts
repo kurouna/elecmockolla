@@ -31,6 +31,7 @@ const api: MockollaApi = {
   injectFault: invoke(CH.injectFault),
   clearFaults: invoke(CH.clearFaults),
   resetStats: invoke(CH.resetStats),
+  exportRequests: invoke(CH.exportRequests),
   playground: invoke(CH.playground),
   cancelPlayground: invoke(CH.cancelPlayground),
   loadGen: invoke(CH.loadGen),

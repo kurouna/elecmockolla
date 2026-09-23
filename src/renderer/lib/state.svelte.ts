@@ -1,5 +1,6 @@
 import type { HostStatus, LoadGenStatus } from '../../shared/api.ts'
 import type {
+  ExportFormat,
   MockConfig,
   Preset,
   Recording,
@@ -156,9 +157,16 @@ class Store {
       return false
     }
     this.rules = r.value
-    this.notice = ''
+    this.notice = r.notice ?? ''
     this.flash(t('common.rulesSaved'))
     return true
+  }
+
+  /** Saves the given requests to a file main asks the user for. */
+  async exportRequests(format: ExportFormat, ids: number[]): Promise<void> {
+    const r = await api().exportRequests(format, ids)
+    if (r.status === 'saved') this.flash(t('req.exported', { n: r.count, path: r.path }))
+    else if (r.status === 'error') this.flash(r.error, 'error')
   }
 
   async deleteRecordings(ids: string[] | 'all'): Promise<void> {

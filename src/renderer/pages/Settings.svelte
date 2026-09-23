@@ -1,9 +1,9 @@
 <script lang="ts">
 import { normalizeUpstream, SERVER_MODES, serializeEnv } from '../../core/config.ts'
-import type { MockConfig } from '../../shared/types.ts'
+import type { MockConfig, Preset, ServerMode } from '../../shared/types.ts'
 import Icon from '../components/Icon.svelte'
 import Rich from '../components/Rich.svelte'
-import { t, tOr } from '../lib/i18n.svelte.ts'
+import { type Key, t, tOr } from '../lib/i18n.svelte.ts'
 import { store } from '../lib/state.svelte.ts'
 
 const api = window.mockolla
@@ -14,7 +14,7 @@ let form = $state<MockConfig>(initial)
 let seedText = $state(initial.seed === null ? '' : String(initial.seed))
 let modelsText = $state(initial.models.join(', '))
 
-// Follow outside changes (presets, Chaos, Models) while the form is untouched.
+// Follow outside changes (Chaos, Models) while the form is untouched.
 let base = $state(JSON.stringify(store.config))
 $effect(() => {
   const next = JSON.stringify(store.config)
@@ -42,24 +42,16 @@ const dirty = $derived(JSON.stringify(current()) !== JSON.stringify(store.config
 const restartNeeded = $derived(form.host !== store.config?.host || form.port !== store.config?.port)
 const preview = $derived(serializeEnv(current()))
 
-const up = $derived(store.snapshot?.upstream ?? null)
-const upstreamValid = $derived(normalizeUpstream(form.upstream) !== '')
-/** This server listening on the very port the local Ollama needs. */
-const portClash = $derived.by(() => {
-  if (form.mode === 'mock') return false
-  try {
-    const u = new URL(normalizeUpstream(form.upstream))
-    const local = ['127.0.0.1', 'localhost', '[::1]', '0.0.0.0'].includes(u.hostname)
-    return local && Number(u.port || (u.protocol === 'https:' ? 443 : 80)) === Number(form.port)
-  } catch {
-    return false
-  }
-})
-
 async function save() {
-  const c = current()
-  if (await store.saveConfig(c, restartNeeded ? t('set.savedRestarted') : t('set.savedApplied'))) {
+  if (!dirty) return
+  if (
+    await store.saveConfig(
+      current(),
+      restartNeeded ? t('set.savedRestarted') : t('set.savedApplied'),
+    )
+  ) {
     base = JSON.stringify(store.config)
+    revert()
   }
 }
 function revert() {
@@ -68,190 +60,515 @@ function revert() {
   seedText = form.seed === null ? '' : String(form.seed)
   modelsText = form.models.join(', ')
 }
+function onKey(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    e.preventDefault()
+    void save()
+  }
+}
+
+// --- which settings the chosen mode uses --------------------------------------------
+// A setting the mode does not use stays visible but disabled, with the reason, so it
+// can be found - and is not mistaken for one that does something now.
+const usesMock = $derived(form.mode !== 'proxy')
+const usesUpstream = $derived(form.mode !== 'mock')
+const APPLIES: Record<'all' | 'mock' | 'upstream', Key> = {
+  all: 'set.appliesAll',
+  mock: 'set.appliesMock',
+  upstream: 'set.appliesUpstream',
+}
+
+// --- the real Ollama (proxy and mixed modes) -----------------------------------------
+const up = $derived(store.snapshot?.upstream ?? null)
+const upstreamValid = $derived(normalizeUpstream(form.upstream) !== '')
+/** This server listening on the very port the local Ollama needs. */
+const portClash = $derived.by(() => {
+  if (!usesUpstream) return false
+  try {
+    const u = new URL(normalizeUpstream(form.upstream))
+    const local = ['127.0.0.1', 'localhost', '[::1]', '0.0.0.0'].includes(u.hostname)
+    return local && Number(u.port || (u.protocol === 'https:' ? 443 : 80)) === Number(form.port)
+  } catch {
+    return false
+  }
+})
+const upstreamSaved = $derived(
+  store.config?.mode !== 'mock' && store.config?.upstream === normalizeUpstream(form.upstream),
+)
+
+// --- speed presets fill the form; Save applies them like any other change -----------
+function usePreset(p: Preset) {
+  form.ttftMs = p.values.ttftMs
+  form.tps = p.values.tps
+  form.jitter = p.values.jitter
+  form.loadMs = p.values.loadMs
+  if (p.values.seed !== undefined) seedText = p.values.seed === null ? '' : String(p.values.seed)
+}
+const presetOn = (p: Preset) =>
+  form.ttftMs === p.values.ttftMs &&
+  form.tps === p.values.tps &&
+  form.jitter === p.values.jitter &&
+  form.loadMs === p.values.loadMs
+
+// --- the table of contents follows the scroll -----------------------------------------
+const SECTIONS = ['mode', 'connection', 'capacity', 'replies', 'recordings', 'file'] as const
+type Section = (typeof SECTIONS)[number]
+let scroller: HTMLDivElement | undefined = $state()
+let active = $state<Section>('mode')
+function onScroll() {
+  if (!scroller) return
+  const top = scroller.scrollTop + 80
+  let at: Section = 'mode'
+  for (const id of SECTIONS) {
+    const el = scroller.querySelector<HTMLElement>(`#sec-${id}`)
+    if (el && el.offsetTop <= top) at = id
+  }
+  // At the very bottom, the last section is the one being read.
+  if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4) at = 'file'
+  active = at
+}
+function go(id: Section) {
+  scroller?.querySelector(`#sec-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+const modeLabel = (m: ServerMode) => t(`mode.${m}`)
 </script>
 
-<div class="page">
-  <div class="page-head">
-    <div class="grow">
-      <h2>{t('nav.settings')}</h2>
-      <p><Rich text={t('set.intro', { path: store.envPath })} /></p>
-    </div>
-    <button class="btn" onclick={() => api.openFolder()}><Icon name="folder" size={14} />{t('set.openFolder')}</button>
-    <button class="btn" onclick={revert} disabled={!dirty}><Icon name="undo" size={13} />{t('common.revert')}</button>
-    <button class="btn primary" onclick={save} disabled={!dirty}><Icon name="save" size={13} />{restartNeeded ? t('set.saveRestart') : t('common.save')}</button>
-  </div>
+<svelte:window onkeydown={onKey} />
 
-  <section class="card modes">
-    <div class="card-head"><h3>{t('set.mode')}</h3></div>
-    <div class="card-body">
-      <div class="mlist">
-        {#each SERVER_MODES as m (m)}
-          <button class="preset" class:on={form.mode === m} onclick={() => (form.mode = m)}>
-            <b>{t(`mode.${m}`)}</b>
-            <small>{t(`mode.${m}.desc`)}</small>
-          </button>
-        {/each}
+<div class="settings">
+  <nav class="toc" aria-label={t('nav.settings')}>
+    {#each SECTIONS as id (id)}
+      <button class:on={active === id} onclick={() => go(id)}>{t(`set.sec.${id}`)}</button>
+    {/each}
+  </nav>
+
+  <div class="scroll" bind:this={scroller} onscroll={onScroll}>
+    <div class="page-head">
+      <div class="grow">
+        <h2>{t('nav.settings')}</h2>
+        <p><Rich text={t('set.intro', { path: store.envPath })} /></p>
       </div>
-      {#if form.mode !== 'mock'}
-        <div class="upstream">
-          <label class="field grow">
-            <span>{t('set.upstream')}</span>
-            <input class="input mono" class:invalid={!upstreamValid} bind:value={form.upstream} placeholder="http://127.0.0.1:11434/v1" />
-            <small>{t('set.upstreamHelp')}</small>
-          </label>
-          <div class="ustatus">
-            {#if store.config?.mode === 'mock' || store.config?.upstream !== normalizeUpstream(form.upstream)}
-              <span class="muted">{t('set.upstreamApply')}</span>
-            {:else if !up || !up.checkedAt}
-              <span class="muted">{t('set.upstreamChecking')}</span>
-            {:else if up.ok}
-              <span class="chip green"
-                ><span class="dot live"></span>{up.api === 'openai'
-                  ? t('set.upstreamOkOpenai', { models: up.models.length })
-                  : up.loaded === null
-                    ? t('set.upstreamOkNoPs', { version: up.version, models: up.models.length })
-                    : t('set.upstreamOk', { version: up.version, models: up.models.length, loaded: up.loaded.length })}</span
-              >
-            {:else}
-              <span class="chip red">{t('set.upstreamDown', { error: up.error })}</span>
-            {/if}
+      <button class="btn" onclick={() => api.openFolder()}><Icon name="folder" size={14} />{t('set.openFolder')}</button>
+    </div>
+
+    <!-- Mode ------------------------------------------------------------------------ -->
+    <section class="sec" id="sec-mode">
+      <h3>{t('set.sec.mode')}</h3>
+      <p class="desc">{t('set.sec.mode.desc')}</p>
+      <div class="card body">
+        <div class="modes" role="radiogroup" aria-label={t('set.sec.mode')}>
+          {#each SERVER_MODES as m (m)}
+            <button class="choice" class:on={form.mode === m} role="radio" aria-checked={form.mode === m} onclick={() => (form.mode = m)}>
+              <span class="radio"></span>
+              <span class="grow">
+                <b>{modeLabel(m)}</b>
+                <small>{t(`mode.${m}.desc`)}</small>
+              </span>
+            </button>
+          {/each}
+        </div>
+        {#if usesUpstream}
+          <div class="row sub">
+            <div class="lab">
+              <b>{t('set.upstream')}</b>
+              <small>{t('set.upstreamHelp')}</small>
+            </div>
+            <div class="ctl wide">
+              <input class="input mono" class:invalid={!upstreamValid} bind:value={form.upstream} placeholder="http://127.0.0.1:11434/v1" />
+              <div class="status">
+                {#if !upstreamSaved}
+                  <span class="muted">{t('set.upstreamApply')}</span>
+                {:else if !up || !up.checkedAt}
+                  <span class="muted">{t('set.upstreamChecking')}</span>
+                {:else if up.ok}
+                  <span class="chip green"
+                    ><span class="dot live"></span>{up.api === 'openai'
+                      ? t('set.upstreamOkOpenai', { models: up.models.length })
+                      : up.loaded === null
+                        ? t('set.upstreamOkNoPs', { version: up.version, models: up.models.length })
+                        : t('set.upstreamOk', { version: up.version, models: up.models.length, loaded: up.loaded.length })}</span
+                  >
+                {:else}
+                  <span class="chip red">{t('set.upstreamDown', { error: up.error })}</span>
+                {/if}
+              </div>
+            </div>
           </div>
-        </div>
-        {#if portClash}<div class="clash">{t('set.portClash', { port: form.port })}</div>{/if}
-      {/if}
-    </div>
-  </section>
+          {#if portClash}<div class="warn">{t('set.portClash', { port: form.port })}</div>{/if}
+        {/if}
+      </div>
+    </section>
 
-  <section class="card presets">
-    <div class="card-head"><h3>{t('set.presets')}</h3><span class="muted small">{t('set.presetsNote')}</span></div>
-    <div class="card-body plist">
-      {#each store.presets as p (p.id)}
-        {@const on = store.config && store.config.ttftMs === p.values.ttftMs && store.config.tps === p.values.tps && store.config.jitter === p.values.jitter && store.config.loadMs === p.values.loadMs}
-        <button class="preset" class:on onclick={() => store.applyPreset(p.id)}>
-          <b>{tOr(`preset.${p.id}.label`, p.label)}</b>
-          <span class="mono">{p.values.ttftMs}ms · {p.values.tps || '∞'} tok/s</span>
-          <small>{tOr(`preset.${p.id}.desc`, p.description)}</small>
-        </button>
-      {/each}
-    </div>
-  </section>
+    <!-- Connection ------------------------------------------------------------------ -->
+    <section class="sec" id="sec-connection">
+      <h3>{t('set.sec.connection')} <span class="applies">{t(APPLIES.all)}</span></h3>
+      <p class="desc">{t('set.sec.connection.desc')}</p>
+      <div class="card rows">
+        <div class="row">
+          <div class="lab"><b>{t('set.host')}</b><small>{t('set.hostHelp')}</small></div>
+          <div class="ctl"><input class="input mono" bind:value={form.host} /></div>
+        </div>
+        <div class="row">
+          <div class="lab"><b>{t('set.port')}</b><small>{t('set.portHelp')}</small></div>
+          <div class="ctl"><input class="input mono" type="number" min="1" max="65535" bind:value={form.port} /></div>
+        </div>
+        <div class="row">
+          <div class="lab"><b>{t('set.cors')}</b><small>{t('set.corsHelp')}</small></div>
+          <div class="ctl"><input class="input mono" bind:value={form.cors} placeholder={t('set.corsDisabled')} /></div>
+        </div>
+      </div>
+    </section>
 
-  <div class="cols">
-    <div class="stack">
-      <section class="card">
-        <div class="card-head"><h3>{t('set.network')}</h3>{#if restartNeeded}<span class="chip amber">{t('set.restartOnSave')}</span>{/if}</div>
-        <div class="card-body form">
-          <label class="field"><span>{t('set.host')}</span><input class="input mono" bind:value={form.host} /><small>{t('set.hostHelp')}</small></label>
-          <label class="field"><span>{t('set.port')}</span><input class="input mono" type="number" min="1" max="65535" bind:value={form.port} /><small>{t('set.portHelp')}</small></label>
-          <label class="field"><span>{t('set.cors')}</span><input class="input mono" bind:value={form.cors} placeholder={t('set.corsDisabled')} /><small>{t('set.corsHelp')}</small></label>
+    <!-- Capacity -------------------------------------------------------------------- -->
+    <section class="sec" id="sec-capacity">
+      <h3>{t('set.sec.capacity')} <span class="applies">{t(APPLIES.all)}</span></h3>
+      <p class="desc">{t('set.sec.capacity.desc')}</p>
+      <div class="card rows">
+        <div class="row">
+          <div class="lab"><b>{t('set.parallel')}</b><small>OLLAMA_NUM_PARALLEL</small></div>
+          <div class="ctl"><input class="input" type="number" min="1" max="64" bind:value={form.numParallel} /></div>
         </div>
-      </section>
-      <section class="card">
-        <div class="card-head"><h3>{t('set.capacity')}</h3></div>
-        <div class="card-body form two">
-          <label class="field"><span>{t('set.parallel')}</span><input class="input" type="number" min="1" max="64" bind:value={form.numParallel} /><small>OLLAMA_NUM_PARALLEL</small></label>
-          <label class="field"><span>{t('set.maxQueue')}</span><input class="input" type="number" min="0" bind:value={form.maxQueue} /><small>{t('set.maxQueueHelp')}</small></label>
+        <div class="row">
+          <div class="lab"><b>{t('set.maxQueue')}</b><small>{t('set.maxQueueHelp')}</small></div>
+          <div class="ctl"><input class="input" type="number" min="0" bind:value={form.maxQueue} /></div>
         </div>
-      </section>
-      <section class="card">
-        <div class="card-head"><h3>{t('set.speed')}</h3></div>
-        <div class="card-body form two">
-          <label class="field"><span>{t('set.ttft')}</span><input class="input" type="number" min="0" bind:value={form.ttftMs} /></label>
-          <label class="field"><span>{t('set.tps')}</span><input class="input" type="number" min="0" step="any" bind:value={form.tps} /><small>{t('set.tpsHelp')}</small></label>
-          <label class="field"><span>{t('set.jitter', { n: Math.round(form.jitter * 100) })}</span><input type="range" min="0" max="1" step="0.05" bind:value={form.jitter} class="range" /></label>
-          <label class="field"><span>{t('set.loadMs')}</span><input class="input" type="number" min="0" bind:value={form.loadMs} /><small>{t('set.loadMsHelp')}</small></label>
-          <label class="field"><span>{t('set.keepAlive')}</span><input class="input" type="number" min="0" bind:value={form.keepAliveSec} /></label>
-          <label class="field"><span>{t('set.pullMs')}</span><input class="input" type="number" min="0" bind:value={form.pullMs} /></label>
-        </div>
-      </section>
-    </div>
+      </div>
+    </section>
 
-    <div class="stack">
-      <section class="card">
-        <div class="card-head"><h3>{t('set.replies')}</h3></div>
-        <div class="card-body form">
-          <label class="field"><span>{t('set.seed')}</span><input class="input mono" bind:value={seedText} placeholder={t('set.seedRandom')} /><small>{t('set.seedHelp')}</small></label>
-          <label class="field"><span>{t('set.models')}</span><textarea class="textarea mono" rows="3" bind:value={modelsText}></textarea><small>{t('set.modelsHelp')}</small></label>
-          <label class="check"><input type="checkbox" bind:checked={form.strictModels} />{t('set.strict')}</label>
-          <div class="two">
-            <label class="field"><span>{t('set.version')}</span><input class="input mono" bind:value={form.version} /></label>
-            <label class="field"><span>{t('set.embedDim')}</span><input class="input" type="number" min="1" max="8192" bind:value={form.embedDim} /></label>
+    <!-- Mock replies ---------------------------------------------------------------- -->
+    <section class="sec" id="sec-replies">
+      <h3>{t('set.sec.replies')} <span class="applies">{t(APPLIES.mock)}</span></h3>
+      <p class="desc">{t('set.sec.replies.desc')}</p>
+      {#if !usesMock}<div class="note">{t('set.notInProxy')}</div>{/if}
+      <fieldset class="card rows" disabled={!usesMock}>
+        <div class="group">{t('set.speed')}</div>
+        <div class="presets">
+          {#each store.presets as p (p.id)}
+            <button class="preset" class:on={presetOn(p)} onclick={() => usePreset(p)}>
+              <b>{tOr(`preset.${p.id}.label`, p.label)}</b>
+              <span class="mono">{p.values.ttftMs}ms · {p.values.tps || '∞'} tok/s</span>
+              <small>{tOr(`preset.${p.id}.desc`, p.description)}</small>
+            </button>
+          {/each}
+        </div>
+        <div class="row">
+          <div class="lab"><b>{t('set.ttft')}</b></div>
+          <div class="ctl"><input class="input" type="number" min="0" bind:value={form.ttftMs} /></div>
+        </div>
+        <div class="row">
+          <div class="lab"><b>{t('set.tps')}</b><small>{t('set.tpsHelp')}</small></div>
+          <div class="ctl"><input class="input" type="number" min="0" step="any" bind:value={form.tps} /></div>
+        </div>
+        <div class="row">
+          <div class="lab"><b>{t('set.jitter', { n: Math.round(form.jitter * 100) })}</b></div>
+          <div class="ctl"><input type="range" min="0" max="1" step="0.05" bind:value={form.jitter} class="range" /></div>
+        </div>
+
+        <div class="group">{t('set.content')}</div>
+        <div class="row">
+          <div class="lab"><b>{t('set.seed')}</b><small>{t('set.seedHelp')}</small></div>
+          <div class="ctl"><input class="input mono" bind:value={seedText} placeholder={t('set.seedRandom')} /></div>
+        </div>
+        <div class="row">
+          <div class="lab"><b>{t('set.rulesFile')}</b><small>{t('set.rulesFileHelp', { path: store.rulesPath })}</small></div>
+          <div class="ctl"><input class="input mono" bind:value={form.rulesPath} /></div>
+        </div>
+
+        <div class="group">{t('set.modelsGroup')}</div>
+        <div class="row">
+          <div class="lab"><b>{t('set.models')}</b><small>{t('set.modelsHelp')}</small></div>
+          <div class="ctl wide"><textarea class="textarea mono" rows="2" bind:value={modelsText}></textarea></div>
+        </div>
+        <div class="row">
+          <div class="lab"><b>{t('set.strictLabel')}</b><small>{t('set.strict')}</small></div>
+          <div class="ctl"><input class="switch" type="checkbox" role="switch" bind:checked={form.strictModels} /></div>
+        </div>
+        <div class="row">
+          <div class="lab"><b>{t('set.loadMs')}</b><small>{t('set.loadMsHelp')}</small></div>
+          <div class="ctl"><input class="input" type="number" min="0" bind:value={form.loadMs} /></div>
+        </div>
+        <div class="row">
+          <div class="lab"><b>{t('set.keepAlive')}</b></div>
+          <div class="ctl"><input class="input" type="number" min="0" bind:value={form.keepAliveSec} /></div>
+        </div>
+        <div class="row">
+          <div class="lab"><b>{t('set.pullMs')}</b></div>
+          <div class="ctl"><input class="input" type="number" min="0" bind:value={form.pullMs} /></div>
+        </div>
+        <div class="row">
+          <div class="lab"><b>{t('set.version')}</b><small>{t('set.versionHelp')}</small></div>
+          <div class="ctl"><input class="input mono" bind:value={form.version} /></div>
+        </div>
+        <div class="row">
+          <div class="lab"><b>{t('set.embedDim')}</b></div>
+          <div class="ctl"><input class="input" type="number" min="1" max="8192" bind:value={form.embedDim} /></div>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- Recordings ------------------------------------------------------------------ -->
+    <section class="sec" id="sec-recordings">
+      <h3>
+        {t('set.sec.recordings')}
+        {#if store.config?.record && store.config.mode !== 'mock'}<span class="chip red">● REC</span>{/if}
+      </h3>
+      <p class="desc">{t('set.sec.recordings.desc')}</p>
+      <div class="card rows">
+        <div class="row" class:off={!usesUpstream}>
+          <div class="lab">
+            <b>{t('set.recordLabel')} <span class="applies">{t(APPLIES.upstream)}</span></b>
+            <small>{usesUpstream ? t('set.recordHelp') : t('set.onlyIn', { modes: `${modeLabel('proxy')}・${modeLabel('mixed')}` })}</small>
           </div>
-          <label class="field"><span>{t('set.rulesFile')}</span><input class="input mono" bind:value={form.rulesPath} /><small>{t('set.rulesFileHelp', { path: store.rulesPath })}</small></label>
+          <div class="ctl"><input class="switch" type="checkbox" role="switch" disabled={!usesUpstream} bind:checked={form.record} /></div>
         </div>
-      </section>
-      <section class="card">
-        <div class="card-head">
-          <h3>{t('set.recordings')}</h3>
-          {#if store.config?.record && store.config.mode !== 'mock'}<span class="chip red">● REC</span>{/if}
+        <div class="row" class:off={!usesMock}>
+          <div class="lab">
+            <b>{t('set.replayLabel')} <span class="applies">{t(APPLIES.mock)}</span></b>
+            <small>{usesMock ? t('set.replayHelp') : t('set.onlyIn', { modes: `${modeLabel('mock')}・${modeLabel('mixed')}` })}</small>
+          </div>
+          <div class="ctl"><input class="switch" type="checkbox" role="switch" disabled={!usesMock} bind:checked={form.replay} /></div>
         </div>
-        <div class="card-body form">
-          <label class="check"><input type="checkbox" bind:checked={form.record} />{t('set.record')}</label>
-          {#if form.record && form.mode === 'mock'}<small class="warnline">{t('set.recordNoProxy')}</small>{/if}
-          <label class="check"><input type="checkbox" bind:checked={form.replay} />{t('set.replay')}</label>
-          <small class="muted">{t('set.recordingsHelp')}</small>
-          <label class="field">
-            <span>{t('set.recordingsFile')}</span><input class="input mono" bind:value={form.recordingsPath} />
-            <small>{t('set.recordingsFileHelp', { path: store.recordingsPath, n: store.recordings.length })}</small>
-          </label>
+        <div class="row">
+          <div class="lab"><b>{t('set.recordingsFile')}</b><small>{t('set.recordingsFileHelp', { path: store.recordingsPath, n: store.recordings.length })} {t('set.recordingsHelp')}</small></div>
+          <div class="ctl"><input class="input mono" bind:value={form.recordingsPath} /></div>
         </div>
-      </section>
-      <section class="card">
-        <div class="card-head"><h3>{t('set.envPreview')}</h3><span class="grow"></span>
+      </div>
+    </section>
+
+    <!-- The settings file ----------------------------------------------------------- -->
+    <section class="sec" id="sec-file">
+      <h3>{t('set.sec.file')}</h3>
+      <p class="desc"><Rich text={t('set.sec.file.desc', { path: store.envPath })} /></p>
+      <div class="card body">
+        <div class="filehead">
+          <span class="muted small">{t('set.envPreview')}</span>
+          <span class="grow"></span>
           <button class="btn sm ghost" onclick={() => store.copy(preview, t('set.envCopied'))}><Icon name="copy" size={12} /></button>
         </div>
-        <div class="card-body"><pre class="env">{preview}</pre></div>
-      </section>
-    </div>
+        <pre class="env">{preview}</pre>
+      </div>
+    </section>
+
+    <!-- Save: only while there is something to save ----------------------------------- -->
+    {#if dirty}
+      <div class="savebar" role="status">
+        <Icon name="save" size={14} />
+        <span class="grow">
+          {t('set.unsaved')}
+          {#if restartNeeded}<span class="restart">{t('set.unsavedRestart')}</span>{/if}
+        </span>
+        <button class="btn" onclick={revert}><Icon name="undo" size={13} />{t('common.revert')}</button>
+        <button class="btn primary" onclick={save}>
+          <Icon name="save" size={13} />{restartNeeded ? t('set.saveRestart') : t('common.save')}
+          <kbd>Ctrl+S</kbd>
+        </button>
+      </div>
+    {/if}
   </div>
 </div>
 
 <style>
-  .small {
-    font-size: 11px;
-  }
-  .presets,
-  .modes {
-    margin-bottom: 12px;
-  }
-  .mlist {
+  .settings {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 168px minmax(0, 1fr);
+    height: 100%;
+  }
+  .toc {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 70px 10px 0 14px;
+    border-right: 1px solid var(--line);
+  }
+  .toc button {
+    text-align: left;
+    height: 30px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 12.5px;
+  }
+  .toc button:hover {
+    background: var(--panel);
+    color: var(--text);
+  }
+  .toc button.on {
+    background: var(--panel-2);
+    color: var(--text);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .scroll {
+    overflow: auto;
+    padding: 18px 24px 0;
+    scroll-padding-top: 12px;
+  }
+  .sec {
+    max-width: 880px;
+    margin-bottom: 28px;
+  }
+  .sec h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    margin: 0 0 2px;
+  }
+  .desc {
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .applies {
+    font: 500 10.5px var(--font);
+    padding: 1px 7px;
+    border-radius: 9px;
+    background: var(--panel-2);
+    border: 1px solid var(--line-2);
+    color: var(--muted);
+  }
+  .card.body {
+    padding: 12px 14px;
+  }
+  fieldset.card {
+    margin: 0;
+    min-width: 0;
+  }
+  fieldset:disabled {
+    opacity: 0.5;
+  }
+  .rows {
+    padding: 0 14px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 11px 0;
+    border-top: 1px solid var(--line);
+  }
+  .rows > .row:first-child,
+  .rows > .group:first-child + .presets + .row,
+  .group + .row {
+    border-top: 0;
+  }
+  .row.off .lab {
+    opacity: 0.55;
+  }
+  .row.sub {
+    border-top: 1px solid var(--line);
+    margin-top: 12px;
+    padding-bottom: 0;
+    align-items: flex-start;
+  }
+  .lab {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .lab b {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
     gap: 8px;
   }
-  .upstream {
+  .lab small {
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+  .ctl {
+    width: 260px;
+    flex-shrink: 0;
     display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    margin-top: 12px;
+    justify-content: flex-end;
   }
-  .ustatus {
-    padding-top: 26px;
-    max-width: 50%;
+  .ctl .input,
+  .ctl .textarea {
+    width: 100%;
   }
-  .ustatus .chip {
+  .ctl.wide {
+    width: 420px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .status .chip {
     white-space: normal;
     height: auto;
     min-height: 22px;
   }
-  .clash {
-    margin-top: 10px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    background: var(--amber-soft);
-    color: var(--amber);
+  .group {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 14px 0 4px;
+    border-top: 1px solid var(--line);
   }
-  .plist {
+  .rows > .group:first-child {
+    border-top: 0;
+  }
+  .modes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line-2);
+    background: var(--bg-2);
+    text-align: left;
+    cursor: pointer;
+  }
+  .choice b {
+    display: block;
+    margin-bottom: 2px;
+  }
+  .choice small {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .choice:hover {
+    border-color: var(--muted);
+  }
+  .choice.on {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .radio {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    margin-top: 2px;
+    border-radius: 50%;
+    border: 2px solid var(--line-2);
+  }
+  .choice.on .radio {
+    border-color: var(--accent);
+    background: radial-gradient(var(--accent) 45%, transparent 50%);
+  }
+  .presets {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 8px;
+    padding: 4px 0 10px;
   }
   .preset {
     display: flex;
     flex-direction: column;
     gap: 3px;
-    padding: 10px 12px;
+    padding: 8px 10px;
     border-radius: 8px;
     border: 1px solid var(--line-2);
     background: var(--bg-2);
@@ -271,43 +588,108 @@ function revert() {
   }
   .preset small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 10.5px;
     line-height: 1.35;
-  }
-  .cols {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  .stack {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    min-width: 0;
-  }
-  .form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .two {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
   }
   .range {
     width: 100%;
     accent-color: var(--accent);
-    height: 30px;
   }
-  .warnline {
+  .note,
+  .warn {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+  .note {
+    background: color-mix(in srgb, var(--violet) 12%, transparent);
+    color: var(--violet);
+  }
+  .warn {
+    margin: 12px 0 0;
+    background: var(--amber-soft);
     color: var(--amber);
-    font-size: 11.5px;
+  }
+  /* A switch: a checkbox drawn as a track and a knob. */
+  .switch {
+    appearance: none;
+    width: 34px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--line-2);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .switch::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.15s;
+  }
+  .switch:checked {
+    background: var(--accent);
+  }
+  .switch:checked::after {
+    transform: translateX(14px);
+  }
+  .switch:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+  .switch:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .filehead {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .small {
+    font-size: 11px;
   }
   .env {
-    max-height: 300px;
+    max-height: 260px;
     overflow: auto;
     font-size: 11px;
     color: var(--text-2);
+  }
+  .savebar {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 880px;
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line-2));
+    background: var(--panel-3);
+    box-shadow: var(--shadow);
+    animation: rise 0.15s ease-out;
+  }
+  .restart {
+    display: block;
+    font-size: 11px;
+    color: var(--amber);
+  }
+  kbd {
+    font: 500 10px var(--mono);
+    opacity: 0.7;
+    margin-left: 4px;
+  }
+  @keyframes rise {
+    from {
+      transform: translateY(8px);
+      opacity: 0;
+    }
   }
 </style>

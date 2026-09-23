@@ -50,6 +50,19 @@ describe('.env', () => {
     expect(rulesPath).toBe(path.join(dir, 'rules.json'))
   })
 
+  it('round-trips Windows paths and other escapes through .env', () => {
+    const c = {
+      ...defaultConfig(),
+      rulesPath: 'C:\\My Docs\\notes\\rules.json',
+      recordingsPath: 'D:\\tapes\\"quoted"\\n.json',
+    }
+    const back = applyEnv(defaultConfig(), parseEnv(serializeEnv(c)))
+    expect(back.rulesPath).toBe(c.rulesPath)
+    expect(back.recordingsPath).toBe(c.recordingsPath)
+    // Written by hand, not as JSON: the backslashes stay as they are.
+    expect(parseEnv('A="C:\\path\\new"').A).toBe('C:\\path\\new')
+  })
+
   it('finds the server behind an upstream URL', () => {
     expect(upstreamRoot('http://127.0.0.1:11434/v1')).toBe('http://127.0.0.1:11434')
     expect(upstreamRoot('http://127.0.0.1:11434/v1/')).toBe('http://127.0.0.1:11434')

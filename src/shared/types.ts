@@ -278,6 +278,9 @@ export interface Snapshot {
   upstream: UpstreamInfo | null
 }
 
+/** Request history files: elecmockolla's JSON, or HAR 1.2. */
+export type ExportFormat = 'json' | 'har'
+
 export interface TestInput {
   prompt: string
   system?: string

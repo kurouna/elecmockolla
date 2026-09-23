@@ -29,6 +29,8 @@ let selId = $state<string | null>(initial.rules[0]?.id ?? null)
 let testPrompt = $state('hello')
 let testModel = $state('llama3.2:3b')
 let result = $state<TestResult | null>(null)
+/** Only the newest test answer is shown; an older one arriving late is dropped. */
+let testSeq = 0
 
 // --- search and filter (the list only: numbering, order and moving stay on the full list)
 let query = $state('')
@@ -89,8 +91,10 @@ function regexError(pattern: string, flags = ''): string {
 $effect(() => {
   const input = { prompt: testPrompt, model: testModel }
   const rules = $state.snapshot(draft)
+  const seq = ++testSeq
   const t = setTimeout(async () => {
-    result = await api.testRules(input, rules)
+    const r = await api.testRules(input, rules)
+    if (seq === testSeq) result = r
   }, 150)
   return () => clearTimeout(t)
 })

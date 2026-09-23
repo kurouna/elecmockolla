@@ -49,7 +49,8 @@ Other mock servers ([fake-ollama](https://github.com/spoonnotfound/fake-ollama),
 headless. elecmockolla adds what you want while building an app that talks to Ollama:
 
 - **See what your app sends.** Every request is recorded: the exact body, which rule answered,
-  queue / load / first-token / streaming time, and a *copy as curl* button.
+  queue / load / first-token / streaming time, and a *copy as curl* button. Save the history
+  as JSON (every field) or HAR (opens in browser dev tools and HAR viewers).
 - **Watch it run.** Tokens per second, busy slots and queue over time, a live card per parallel
   slot, and a waterfall of the last 30 seconds — animated at 60 fps, dark and light.
 - **Behaves like Ollama under load.** `OLLAMA_NUM_PARALLEL`-style slots and an
@@ -73,7 +74,7 @@ headless. elecmockolla adds what you want while building an app that talks to Ol
 
 | Ollama | OpenAI-compatible | Control (`/_mock/*`) |
 |---|---|---|
-| `POST /api/chat`, `/api/generate` (stream or not, `think`, `format`, `tools`, `num_predict`, `keep_alive`, `seed`) | `POST /v1/chat/completions` (SSE, `stream_options.include_usage`, `response_format`, tool calls) | `GET status`, `requests`, `events` (SSE) |
+| `POST /api/chat`, `/api/generate` (stream or not, `think`, `format`, `tools`, `num_predict`, `keep_alive`, `seed`) | `POST /v1/chat/completions` (SSE, `stream_options.include_usage`, `response_format`, tool calls) | `GET status`, `requests` (`?format=har` or `json` for a file), `events` (SSE) |
 | `POST /api/embed`, `/api/embeddings` | `POST /v1/completions` | `GET`/`PUT rules` |
 | `GET /api/tags`, `/api/ps`, `/api/version`, `POST /api/show` | `POST /v1/embeddings` (float or base64) | `GET`/`PATCH config` |
 | `POST /api/pull` (simulated progress), `/api/create`, `/api/copy`, `DELETE /api/delete` | `GET /v1/models`, `/v1/models/:id` | `POST fault`, `test`, `reset` |

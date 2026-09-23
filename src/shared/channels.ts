@@ -13,6 +13,7 @@ export const CH = {
   injectFault: 'mockolla:inject-fault',
   clearFaults: 'mockolla:clear-faults',
   resetStats: 'mockolla:reset-stats',
+  exportRequests: 'mockolla:export-requests',
   playground: 'mockolla:playground',
   cancelPlayground: 'mockolla:cancel-playground',
   loadGen: 'mockolla:load-gen',

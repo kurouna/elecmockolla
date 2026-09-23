@@ -13,6 +13,7 @@ import type {
 } from '../shared/types.ts'
 import { patchConfig } from './config.ts'
 import { Engine, type Plan, type Prompt } from './engine.ts'
+import { EXPORT_FORMATS, exportRequests } from './export.ts'
 import {
   describeModel,
   embed,
@@ -215,6 +216,8 @@ export interface MockServerOptions {
   config: MockConfig
   rules: RulesFile
   recordings?: Recording[]
+  /** elecmockolla's own version, for exported files. */
+  appVersion?: string
 }
 
 /** Tool calls as Ollama or OpenAI send them (OpenAI streams them in pieces), as name + arguments. */
@@ -252,6 +255,7 @@ export class MockServer {
   /** The real Ollama, polled in proxy and mixed modes. */
   readonly upstream = new UpstreamWatch()
   readonly recordings: RecordingStore
+  private appVersion: string
   /** Called with each new recording (the host saves it to recordings.json). */
   onRecorded: ((r: Recording) => void) | null = null
   private scheduler: Scheduler
@@ -270,6 +274,7 @@ export class MockServer {
     this.scheduler = new Scheduler(opts.config.numParallel, opts.config.maxQueue)
     this.models = opts.config.models.map(normalizeModel)
     this.recordings = new RecordingStore(opts.recordings ?? [])
+    this.appVersion = opts.appVersion ?? ''
     this.monitor.sample = () => ({
       busy: this.scheduler.busyCount,
       queued: this.scheduler.queue().length,
@@ -434,15 +439,17 @@ export class MockServer {
   }
 
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    this.cors(res)
     const method = req.method ?? 'GET'
     const url = new URL(req.url ?? '/', 'http://localhost')
     const p = url.pathname.replace(/\/+$/, '') || '/'
+    // The control API changes the server (mode, upstream, rules): it gets no CORS headers,
+    // so a web page open in the browser cannot call it. Only the Ollama API does.
+    if (p.startsWith('/_mock')) return this.control(method, p, req, res)
+    this.cors(res)
     if (method === 'OPTIONS') {
       res.writeHead(204).end()
       return
     }
-    if (p.startsWith('/_mock')) return this.control(method, p, req, res)
     if (this.config.mode !== 'mock') return this.proxied(method, p, req, res)
 
     const openai = p.startsWith('/v1/')
@@ -1307,8 +1314,21 @@ export class MockServer {
           const { finished: _drop, ...rest } = this.snapshotNoDrain()
           return sendJson(res, 200, rest)
         }
-        case 'GET /_mock/requests':
-          return sendJson(res, 200, { requests: this.monitor.recent() })
+        case 'GET /_mock/requests': {
+          const format = new URL(req.url ?? '/', 'http://localhost').searchParams.get('format')
+          if (!format) return sendJson(res, 200, { requests: this.monitor.recent() })
+          if (!EXPORT_FORMATS.includes(format as never))
+            throw new HttpError(400, `format must be one of ${EXPORT_FORMATS.join(', ')}`)
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' })
+          res.end(
+            exportRequests(format as 'json' | 'har', this.monitor.recent(), {
+              url: this.url,
+              version: this.appVersion,
+              mode: this.config.mode,
+            }),
+          )
+          return
+        }
         case 'GET /_mock/events':
           return this.events(res)
         case 'GET /_mock/rules':
