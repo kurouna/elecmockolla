@@ -490,3 +490,10 @@ table.grid tr.selected td {
     box-shadow: 0 0 0 2px var(--accent);
   }
 }
+
+/* File paths have no spaces to break at (macOS temp folders run 50+ characters): wrap them
+   anywhere rather than let them run out of their box. Code blocks keep their own scrolling. */
+:not(pre) > code,
+.toast {
+  overflow-wrap: anywhere;
+}

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -35,7 +35,13 @@ export interface Launched {
  * in the given language (English by default), and waits until the mock answers.
  */
 export async function launch(lang: 'en' | 'ja' = 'en'): Promise<Launched> {
-  const home = mkdtempSync(path.join(tmpdir(), 'mockolla-e2e-'))
+  // A long path with no spaces, like a macOS temp folder: paths shown in the UI must wrap.
+  const root = mkdtempSync(path.join(tmpdir(), 'mockolla-e2e-'))
+  const home = path.join(
+    root,
+    'a_settings_folder_path_with_no_spaces_to_break_at_like_macos_var_folders',
+  )
+  mkdirSync(home, { recursive: true })
   const port = await freePort()
   const app = await electron.launch({
     args: ['.'],
@@ -75,7 +81,7 @@ export async function launch(lang: 'en' | 'ja' = 'en'): Promise<Launched> {
     errors,
     close: async () => {
       await app.close()
-      rmSync(home, { recursive: true, force: true })
+      rmSync(root, { recursive: true, force: true })
     },
   }
 }
