@@ -1,4 +1,5 @@
 <script lang="ts">
+import { onMount } from 'svelte'
 import { normalizeUpstream, SERVER_MODES, serializeEnv } from '../../core/config.ts'
 import type { MockConfig, Preset, ServerMode } from '../../shared/types.ts'
 import Icon from '../components/Icon.svelte'
@@ -42,18 +43,32 @@ const dirty = $derived(JSON.stringify(current()) !== JSON.stringify(store.config
 const restartNeeded = $derived(form.host !== store.config?.host || form.port !== store.config?.port)
 const preview = $derived(serializeEnv(current()))
 
+let saving = $state(false)
 async function save() {
-  if (!dirty) return
-  if (
-    await store.saveConfig(
+  if (!dirty || saving) return
+  saving = true
+  const sent = JSON.stringify(current())
+  try {
+    const ok = await store.saveConfig(
       current(),
       restartNeeded ? t('set.savedRestarted') : t('set.savedApplied'),
     )
-  ) {
+    if (!ok) return
     base = JSON.stringify(store.config)
-    revert()
+    // Show what was stored (main may have normalized a value), unless more was typed since.
+    if (JSON.stringify(current()) === sent) revert()
+  } finally {
+    saving = false
   }
 }
+
+// Leaving with unsaved edits asks first.
+onMount(() => {
+  store.leaveGuard = () => !dirty || confirm(t('common.discard'))
+  return () => {
+    store.leaveGuard = null
+  }
+})
 function revert() {
   if (!store.config) return
   form = structuredClone($state.snapshot(store.config))
@@ -281,7 +296,7 @@ const modeLabel = (m: ServerMode) => t(`mode.${m}`)
         </div>
         <div class="row">
           <div class="lab"><b>{t('set.strictLabel')}</b><small>{t('set.strict')}</small></div>
-          <div class="ctl"><input class="switch" type="checkbox" role="switch" bind:checked={form.strictModels} /></div>
+          <div class="ctl"><input class="switch" type="checkbox" role="switch" aria-label={t('set.strictLabel')} bind:checked={form.strictModels} /></div>
         </div>
         <div class="row">
           <div class="lab"><b>{t('set.loadMs')}</b><small>{t('set.loadMsHelp')}</small></div>
@@ -317,16 +332,16 @@ const modeLabel = (m: ServerMode) => t(`mode.${m}`)
         <div class="row" class:off={!usesUpstream}>
           <div class="lab">
             <b>{t('set.recordLabel')} <span class="applies">{t(APPLIES.upstream)}</span></b>
-            <small>{usesUpstream ? t('set.recordHelp') : t('set.onlyIn', { modes: `${modeLabel('proxy')}・${modeLabel('mixed')}` })}</small>
+            <small>{usesUpstream ? t('set.recordHelp') : t('set.onlyIn', { modes: t('set.modesJoin', { a: modeLabel('proxy'), b: modeLabel('mixed') }) })}</small>
           </div>
-          <div class="ctl"><input class="switch" type="checkbox" role="switch" disabled={!usesUpstream} bind:checked={form.record} /></div>
+          <div class="ctl"><input class="switch" type="checkbox" role="switch" aria-label={t('set.recordLabel')} disabled={!usesUpstream} bind:checked={form.record} /></div>
         </div>
         <div class="row" class:off={!usesMock}>
           <div class="lab">
             <b>{t('set.replayLabel')} <span class="applies">{t(APPLIES.mock)}</span></b>
-            <small>{usesMock ? t('set.replayHelp') : t('set.onlyIn', { modes: `${modeLabel('mock')}・${modeLabel('mixed')}` })}</small>
+            <small>{usesMock ? t('set.replayHelp') : t('set.onlyIn', { modes: t('set.modesJoin', { a: modeLabel('mock'), b: modeLabel('mixed') }) })}</small>
           </div>
-          <div class="ctl"><input class="switch" type="checkbox" role="switch" disabled={!usesMock} bind:checked={form.replay} /></div>
+          <div class="ctl"><input class="switch" type="checkbox" role="switch" aria-label={t('set.replayLabel')} disabled={!usesMock} bind:checked={form.replay} /></div>
         </div>
         <div class="row">
           <div class="lab"><b>{t('set.recordingsFile')}</b><small>{t('set.recordingsFileHelp', { path: store.recordingsPath, n: store.recordings.length })} {t('set.recordingsHelp')}</small></div>
@@ -343,7 +358,7 @@ const modeLabel = (m: ServerMode) => t(`mode.${m}`)
         <div class="filehead">
           <span class="muted small">{t('set.envPreview')}</span>
           <span class="grow"></span>
-          <button class="btn sm ghost" onclick={() => store.copy(preview, t('set.envCopied'))}><Icon name="copy" size={12} /></button>
+          <button class="btn sm ghost" title={t('set.copyEnv')} aria-label={t('set.copyEnv')} onclick={() => store.copy(preview, t('set.envCopied'))}><Icon name="copy" size={12} /></button>
         </div>
         <pre class="env">{preview}</pre>
       </div>
@@ -358,7 +373,7 @@ const modeLabel = (m: ServerMode) => t(`mode.${m}`)
           {#if restartNeeded}<span class="restart">{t('set.unsavedRestart')}</span>{/if}
         </span>
         <button class="btn" onclick={revert}><Icon name="undo" size={13} />{t('common.revert')}</button>
-        <button class="btn primary" onclick={save}>
+        <button class="btn primary" onclick={save} disabled={saving}>
           <Icon name="save" size={13} />{restartNeeded ? t('set.saveRestart') : t('common.save')}
           <kbd>Ctrl+S</kbd>
         </button>

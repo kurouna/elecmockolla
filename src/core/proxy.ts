@@ -200,6 +200,8 @@ export interface ForwardResult {
   /** The injected fault took effect. */
   faulted: boolean
   aborted: boolean
+  /** The upstream reply broke off before its end. */
+  broken?: boolean
 }
 
 /** Sends one request upstream and streams the reply to `res`. */
@@ -297,7 +299,7 @@ export function forward(o: ForwardOptions): Promise<ForwardResult> {
       ur.on('error', () => {
         if (faulted) return
         o.res.destroy()
-        done({ status, reader, faulted, aborted: o.signal.aborted })
+        done({ status, reader, faulted, aborted: o.signal.aborted, broken: !o.signal.aborted })
       })
     })
     up.on('error', (e) => {

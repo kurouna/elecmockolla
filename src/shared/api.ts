@@ -116,4 +116,7 @@ export interface MockollaApi {
   onPlayground(cb: (e: PlaygroundEvent) => void): () => void
   onLoadGen(cb: (s: LoadGenStatus) => void): () => void
   onRecordings(cb: (r: Recording[]) => void): () => void
+  /** The config or rules changed outside the UI (the control API). */
+  onConfig(cb: (c: MockConfig) => void): () => void
+  onRules(cb: (r: RulesFile) => void): () => void
 }

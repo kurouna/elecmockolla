@@ -1,7 +1,7 @@
 <script lang="ts">
 import type { Recording } from '../../shared/types.ts'
 import { fmtMs } from '../lib/format.ts'
-import { t } from '../lib/i18n.svelte.ts'
+import { i18n, t } from '../lib/i18n.svelte.ts'
 import { store } from '../lib/state.svelte.ts'
 import Icon from './Icon.svelte'
 
@@ -20,7 +20,9 @@ const playback = $derived(!!store.config?.replay && store.config.mode !== 'proxy
 
 function when(iso: string): string {
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString(i18n.locale === 'ja' ? 'ja-JP' : 'en-US')
 }
 
 async function removeAll() {

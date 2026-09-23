@@ -274,7 +274,8 @@ function normalizeKeyword(v: unknown, i: number): KeywordEntry {
 
 /** Validates anything parsed from rules.json (or sent by the UI) into a RulesFile. Throws RulesError. */
 export function normalizeRules(v: unknown): RulesFile {
-  if (!isObj(v)) throw new RulesError('the rules file must be a JSON object')
+  if (!isObj(v) || !Array.isArray(v.rules))
+    throw new RulesError('not a rules file: it needs a "rules" array')
   const rules = Array.isArray(v.rules) ? v.rules.map(normalizeRule) : []
   const keywords = Array.isArray(v.keywords) ? v.keywords.map(normalizeKeyword) : []
   const fallback =

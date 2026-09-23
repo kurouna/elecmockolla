@@ -52,7 +52,7 @@ function harEntry(r: RequestRecord, base: string) {
       queryString: [],
       postData: { mimeType: 'application/json', text: body },
       headersSize: -1,
-      bodySize: body.length,
+      bodySize: Buffer.byteLength(body),
     },
     response: {
       status: r.state === 'aborted' ? 0 : r.status,
@@ -60,7 +60,7 @@ function harEntry(r: RequestRecord, base: string) {
       httpVersion: 'HTTP/1.1',
       cookies: [],
       headers: [],
-      content: { size: text.length, mimeType: 'text/plain; charset=utf-8', text },
+      content: { size: Buffer.byteLength(text), mimeType: 'text/plain; charset=utf-8', text },
       redirectURL: '',
       headersSize: -1,
       bodySize: -1,

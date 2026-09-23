@@ -54,6 +54,7 @@ export function normalizeUpstream(v: string): string {
   try {
     const u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(s) ? s : `http://${s}`)
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return ''
+    if (/["'\s]/.test(s)) return ''
     return `${u.protocol}//${u.host}${u.pathname.replace(/\/+$/, '')}`
   } catch {
     return ''
@@ -151,9 +152,9 @@ export function parseEnv(text: string): Record<string, string> {
     if (!m) continue
     const key = m[1] as string
     let value = (m[2] as string).trim()
-    const q = value[0]
-    if ((q === '"' || q === "'") && value.endsWith(q) && value.length >= 2) {
-      value = q === '"' ? unquote(value) : value.slice(1, -1)
+    const quoted = /^(["'])((?:\\.|(?!\1).)*)\1\s*(?:#.*)?$/.exec(value)
+    if (quoted) {
+      value = quoted[1] === '"' ? unquote(`"${quoted[2]}"`) : (quoted[2] as string)
     } else {
       const hash = value.indexOf(' #')
       if (hash >= 0) value = value.slice(0, hash).trim()
@@ -239,7 +240,8 @@ export function applyEnv(base: MockConfig, env: Record<string, string | undefine
   const strict = get('strictModels')
   if (strict !== undefined) c.strictModels = bool(strict)
   const cors = get('cors')
-  if (cors !== undefined) c.cors = cors
+  if (cors !== undefined && (cors === '' || cors === '*' || /^https?:\/\/[^\s,/"]+$/.test(cors)))
+    c.cors = cors
   const mode = get('faultMode')
   if (mode && (mode === 'random' || FAULT_MODES.includes(mode as never)))
     c.faultMode = mode as FaultSetting

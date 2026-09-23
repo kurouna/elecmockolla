@@ -238,6 +238,9 @@ export class LoadGenerator {
         : chatModels[0]) ?? `model-${i}`
     let lastEmit = 0
     const tick = (force = false) => {
+      // A run replaced by a newer one says nothing more: its last word would mark the
+      // new run as stopped.
+      if (this.ac !== ac) return
       const now = Date.now()
       if (force || now - lastEmit > 100) {
         lastEmit = now
@@ -275,7 +278,7 @@ export class LoadGenerator {
     }
     await Promise.all(Array.from({ length: concurrency }, worker))
     st.running = false
-    if (this.ac === ac) this.ac = null
     tick(true)
+    if (this.ac === ac) this.ac = null
   }
 }

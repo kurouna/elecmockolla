@@ -1,4 +1,5 @@
 <script lang="ts">
+import { onMount } from 'svelte'
 import { missingDefaults, takeDefaults } from '../../core/rules.ts'
 import type { FaultMode, Rule, RulesFile, TestResult } from '../../shared/types.ts'
 import Icon from '../components/Icon.svelte'
@@ -76,6 +77,25 @@ function takeOffer(add: boolean) {
 }
 
 const dirty = $derived(JSON.stringify(draft) !== JSON.stringify(store.rules))
+
+// Follow outside changes (the control API) while the draft is untouched.
+let rulesBase = JSON.stringify(store.rules)
+$effect(() => {
+  const next = JSON.stringify(store.rules)
+  if (next !== rulesBase && JSON.stringify($state.snapshot(draft)) === rulesBase) {
+    draft = clone(store.rules)
+    if (!draft.rules.some((r) => r.id === selId)) selId = draft.rules[0]?.id ?? null
+  }
+  rulesBase = next
+})
+
+// Leaving with unsaved edits asks first.
+onMount(() => {
+  store.leaveGuard = () => !dirty || confirm(t('common.discard'))
+  return () => {
+    store.leaveGuard = null
+  }
+})
 const sel = $derived(draft.rules.find((r) => r.id === selId))
 
 function regexError(pattern: string, flags = ''): string {

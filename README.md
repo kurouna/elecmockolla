@@ -226,7 +226,18 @@ server.injectFault('disconnect')   // the next request is cut mid-stream
 await server.stop()
 ```
 
-Or run the CLI with `--preset instant --port 0 --json` and drive it through `/_mock/*`.
+Or run the CLI with `--preset instant --port 0 --json` and drive it through `/_mock/*`:
+
+```bash
+curl -X PATCH http://127.0.0.1:11434/_mock/config -H 'Content-Type: application/json' -d '{"tps": 0}'
+curl http://127.0.0.1:11434/_mock/requests?format=har -o requests.har
+```
+
+The control API answers this machine only (loopback, addressed as `localhost` / `127.0.0.1`),
+takes bodies only as `application/json`, and sends no CORS headers — so neither another machine
+on the network nor a web page open in the browser can reconfigure the server, even with host
+`0.0.0.0`. In the app, changes made through it are saved to `.env` / `rules.json` and shown in
+the UI.
 
 ## Development
 

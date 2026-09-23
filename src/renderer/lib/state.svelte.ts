@@ -51,7 +51,18 @@ class Store {
   snapshotAt = 0
   history = $state.raw<RequestRecord[]>([])
   loadGen = $state<LoadGenStatus>({ running: false, sent: 0, ok: 0, failed: 0, total: 0 })
-  page = $state<Page>('dashboard')
+  #page = $state<Page>('dashboard')
+  /** Set by a page with unsaved edits: returns false to stay. */
+  leaveGuard: (() => boolean) | null = null
+  get page(): Page {
+    return this.#page
+  }
+  set page(p: Page) {
+    if (p === this.#page) return
+    if (this.leaveGuard && !this.leaveGuard()) return
+    this.leaveGuard = null
+    this.#page = p
+  }
   selected = $state<number | null>(null)
   theme = $state<Theme>(readTheme())
   toast = $state<{ text: string; kind: 'ok' | 'error' | 'info'; id: number } | null>(null)
@@ -80,6 +91,12 @@ class Store {
     })
     api().onRecordings((r) => {
       this.recordings = r
+    })
+    api().onConfig((c) => {
+      this.config = c
+    })
+    api().onRules((r) => {
+      this.rules = r
     })
     this.applyTheme()
     this.ready = true
@@ -128,18 +145,47 @@ class Store {
     )
   }
 
-  async saveConfig(
-    patch: Partial<MockConfig>,
+  /** Config saves run one after another, so two quick clicks cannot undo each other. */
+  private saves: Promise<unknown> = Promise.resolve()
+
+  saveConfig(patch: Partial<MockConfig>, message = t('common.settingsSaved')): Promise<boolean> {
+    return this.updateConfig(() => patch, message)
+  }
+
+  /**
+   * Saves a change computed from the config as it is when the save runs (after any save
+   * before it), e.g. `(c) => ({ numParallel: c.numParallel + 1 })`.
+   */
+  updateConfig(
+    change: (c: MockConfig) => Partial<MockConfig>,
     message = t('common.settingsSaved'),
   ): Promise<boolean> {
-    const r = await api().saveConfig(patch)
-    if (!r.ok) {
-      this.flash(r.error, 'error')
-      return false
+    const run = async (): Promise<boolean> => {
+      if (!this.config) return false
+      const patch = change(this.config)
+      const r = await api().saveConfig(patch)
+      if (!r.ok) {
+        this.flash(r.error, 'error')
+        return false
+      }
+      this.config = r.value
+      // A moved rules or recordings file: take what main now has.
+      if ('rulesPath' in patch || 'recordingsPath' in patch) await this.refreshFiles()
+      if (message) this.flash(message)
+      return true
     }
-    this.config = r.value
-    if (message) this.flash(message)
-    return true
+    const next = this.saves.then(run, run)
+    this.saves = next
+    return next
+  }
+
+  private async refreshFiles(): Promise<void> {
+    const s = await api().getState()
+    this.rules = s.rules
+    this.rulesPath = s.rulesPath
+    this.recordingsPath = s.recordingsPath
+    this.recordings = s.recordings
+    this.notice = s.notice
   }
 
   async applyPreset(id: string): Promise<void> {

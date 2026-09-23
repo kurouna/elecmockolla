@@ -170,7 +170,7 @@ function phases(r: RequestRecord) {
           <pre class="box">{sel.responseText || t('req.empty')}</pre>
         {:else if tab === 'request'}
           <div class="row"><div class="lbl">{t('req.body')}</div><span class="grow"></span>
-            <button class="btn sm ghost" onclick={() => store.copy(JSON.stringify(sel.requestBody, null, 2), t('req.bodyCopied'))}><Icon name="copy" size={12} /></button>
+            <button class="btn sm ghost" title={t('req.copyBody')} aria-label={t('req.copyBody')} onclick={() => store.copy(JSON.stringify(sel.requestBody, null, 2), t('req.bodyCopied'))}><Icon name="copy" size={12} /></button>
           </div>
           <pre class="box">{JSON.stringify(sel.requestBody, null, 2)}</pre>
         {:else}

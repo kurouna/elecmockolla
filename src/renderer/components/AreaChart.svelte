@@ -53,8 +53,8 @@ const fmt = (v: number) =>
   v >= 100 ? Math.round(v).toString() : v >= 10 ? v.toFixed(0) : v.toFixed(1).replace(/\.0$/, '')
 </script>
 
-<div class="chart" bind:clientWidth={width} style:height="{height}px" aria-label={label}>
-  <svg {width} {height} role="img">
+<div class="chart" bind:clientWidth={width} style:height="{height}px">
+  <svg {width} {height} role="img" aria-label={label}>
     <defs>
       <linearGradient {id} x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color={color} stop-opacity="0.35" />

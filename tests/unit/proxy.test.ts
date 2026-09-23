@@ -176,6 +176,39 @@ describe('proxy mode', () => {
     expect(proxy.upstream.isCold('never-used:1b')).toBe(true)
   })
 
+  it('neither finishes nor records a reply the upstream breaks off', async () => {
+    const cut = createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/x-ndjson' })
+      res.write(
+        `${JSON.stringify({ message: { role: 'assistant', content: 'Hello wor' }, done: false })}\n`,
+      )
+      setTimeout(() => res.destroy(), 30)
+    })
+    await new Promise<void>((r) => cut.listen(0, '127.0.0.1', r))
+    const port = (cut.address() as AddressInfo).port
+    const { server, url: p } = await startServer({
+      mode: 'proxy',
+      upstream: `http://127.0.0.1:${port}/v1`,
+      record: true,
+    })
+    const saved: unknown[] = []
+    server.onRecorded = (r) => saved.push(r)
+    try {
+      await fetch(`${p}/api/chat`, {
+        method: 'POST',
+        body: JSON.stringify({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }),
+      })
+        .then((r) => r.text())
+        .catch(() => '')
+      const rec = await lastRecord(server)
+      expect(rec).toMatchObject({ state: 'error', status: 502 })
+      expect(saved).toEqual([])
+    } finally {
+      await server.stop()
+      cut.close()
+    }
+  })
+
   it('injects faults into real replies', async () => {
     proxy.injectFault('disconnect')
     await expect(

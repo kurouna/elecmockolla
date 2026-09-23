@@ -107,6 +107,12 @@ export class Monitor {
     rec.t.ended = Date.now()
     if (error) rec.error = error
     this.active.delete(rec.id)
+    // Received before the last reset: it is not in these totals, so it is not counted out.
+    if (this.carried.delete(rec.id)) {
+      this.history.push(rec)
+      this.unsent.push(rec)
+      return
+    }
     if (state === 'done') this.totals.completed++
     else if (state === 'aborted') this.totals.aborted++
     else if (status === 503) this.totals.rejected++
@@ -152,7 +158,11 @@ export class Monitor {
     return [...this.history]
   }
 
+  /** Requests still running at the last reset. */
+  private carried = new Set<number>()
+
   reset(): void {
+    this.carried = new Set(this.active.keys())
     this.history = []
     this.unsent = []
     this.totals = { requests: 0, completed: 0, errors: 0, aborted: 0, rejected: 0, tokens: 0 }

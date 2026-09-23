@@ -18,10 +18,13 @@ const HISTORY = 500
 /**
  * Owns the server's utility process: start, stop, live updates, and the
  * latest snapshot plus request history for pages that open later.
- * Emits 'status' (HostStatus), 'snapshot' (Snapshot) and 'recorded' (Recording).
+ * Emits 'status' (HostStatus), 'snapshot' (Snapshot), 'recorded' (Recording) and
+ * 'changed' ({config?, rules?}: what the control API changed).
  */
 export class ServerHost extends EventEmitter {
   private child: UtilityProcess | null = null
+  /** The stop in progress, which a start or a second stop waits for. */
+  private stopping: Promise<HostStatus> | null = null
   private status: ServerStatus = 'stopped'
   private url = ''
   private error = ''
@@ -50,6 +53,8 @@ export class ServerHost extends EventEmitter {
   }
 
   start(config: MockConfig, rules: RulesFile, recordings: Recording[]): Promise<HostStatus> {
+    // Started while stopping: wait for the stop, then start afresh.
+    if (this.stopping) return this.stopping.then(() => this.start(config, rules, recordings))
     if (this.child) return Promise.resolve(this.getStatus())
     this.setStatus('starting')
     const child = utilityProcess.fork(WORKER, [], {
@@ -68,6 +73,11 @@ export class ServerHost extends EventEmitter {
       child.on('message', (m: WorkerOut) => {
         switch (m.type) {
           case 'listening':
+            // Stopped before it came up: the stop wins, and no "exited" error follows.
+            if (this.child !== child || this.status === 'stopping') {
+              settle()
+              break
+            }
             this.url = m.url
             this.setStatus('running')
             settle()
@@ -88,6 +98,9 @@ export class ServerHost extends EventEmitter {
             break
           case 'recorded':
             this.emit('recorded', m.recording)
+            break
+          case 'changed':
+            this.emit('changed', { config: m.config, rules: m.rules })
             break
           case 'stopped':
             break
@@ -114,17 +127,20 @@ export class ServerHost extends EventEmitter {
       if (this.status !== 'error') this.setStatus('stopped')
       return Promise.resolve(this.getStatus())
     }
+    if (this.stopping) return this.stopping
     this.setStatus('stopping')
-    return new Promise((resolve) => {
+    this.stopping = new Promise((resolve) => {
       const force = setTimeout(() => child.kill(), 3000)
       child.once('exit', () => {
         clearTimeout(force)
         this.child = null
+        this.stopping = null
         this.setStatus('stopped')
         resolve(this.getStatus())
       })
       this.post({ type: 'stop' })
     })
+    return this.stopping
   }
 
   private post(m: WorkerIn): void {

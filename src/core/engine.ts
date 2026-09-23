@@ -88,7 +88,7 @@ function placeholder(expr: string, ctx: Ctx): string | undefined {
       return String(randInt(rng, Math.min(lo, hi), Math.max(lo, hi)))
     }
     case 'pick': {
-      const items = arg.split('|')
+      const items = arg.split('|').map((s) => s.trim())
       return items.length ? pick(rng, items) : ''
     }
     default:

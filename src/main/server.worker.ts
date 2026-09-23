@@ -6,7 +6,7 @@
  *   in:  start {config, rules, recordings} | config {config} | rules {rules}
  *        | recordings {recordings} | fault {mode, count} | clearFaults | reset | stop
  *   out: listening {url} | failed {message, code} | snapshot {snapshot}
- *        | recorded {recording} | stopped
+ *        | recorded {recording} | changed {config?, rules?} | stopped
  */
 import { MockServer } from '../core/server.ts'
 import type { FaultMode, MockConfig, Recording, RulesFile } from '../shared/types.ts'
@@ -26,6 +26,8 @@ export type WorkerOut =
   | { type: 'failed'; message: string; code: string }
   | { type: 'snapshot'; snapshot: ReturnType<MockServer['snapshot']> }
   | { type: 'recorded'; recording: Recording }
+  /** The control API changed these; main saves them and shows them. */
+  | { type: 'changed'; config?: MockConfig; rules?: RulesFile }
   | { type: 'stopped' }
 
 const SNAPSHOT_MS = 200
@@ -39,6 +41,7 @@ const send = (m: WorkerOut) => port.postMessage(m)
 async function start(config: MockConfig, rules: RulesFile, recordings: Recording[]): Promise<void> {
   server = new MockServer({ config, rules, recordings })
   server.onRecorded = (recording) => send({ type: 'recorded', recording })
+  server.onControlChange = (change) => send({ type: 'changed', ...change })
   try {
     const url = await server.start()
     send({ type: 'listening', url })

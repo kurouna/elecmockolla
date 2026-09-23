@@ -82,11 +82,23 @@ function readRecordings(): void {
 }
 
 let saveTimer: NodeJS.Timeout | undefined
+/** Writes a pending recordings save now (on quit, and before switching recordings files). */
+function flushRecordings(): void {
+  if (!saveTimer) return
+  clearTimeout(saveTimer)
+  saveTimer = undefined
+  try {
+    saveRecordings(recordingsPath, recordings)
+  } catch (e) {
+    console.error(`could not save ${recordingsPath}:`, e)
+  }
+}
 /** Saves recordings.json a moment after the last change, so a burst of replies is one write. */
 function saveRecordingsSoon(): void {
   if (recordingsError) return
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
+    saveTimer = undefined
     try {
       saveRecordings(recordingsPath, recordings)
     } catch (e) {
@@ -183,6 +195,7 @@ async function applyConfig(next: MockConfig): Promise<SaveResult<MockConfig>> {
             })()
           : null,
     }
+    if (moved.recordings) flushRecordings()
     saveEnv(ENV_PATH, next)
     config = next
     if (moved.rules) {
@@ -427,8 +440,33 @@ app.whenReady().then(async () => {
   loadFromDisk()
   host.on('status', (s) => send(CH.status, s))
   host.on('snapshot', (s) => send(CH.snapshot, s))
+  host.on('changed', (change: { config?: MockConfig; rules?: RulesFile }) => {
+    try {
+      if (change.config) {
+        // Host and port only change through a restart, which the UI does; keep main's.
+        config = { ...change.config, host: config.host, port: config.port }
+        saveEnv(ENV_PATH, config)
+        send(CH.config, config)
+      }
+      if (change.rules) {
+        rules = change.rules
+        rulesError = ''
+        saveRules(rulesPath, rules)
+        send(CH.rules, rules)
+      }
+    } catch (e) {
+      console.error('could not save a control-API change:', e)
+    }
+  })
   host.on('recorded', (r: Recording) => {
-    if (recordingsError || !recordingStore.add(r)) return
+    // A file that was broken may have been fixed by hand since: try it again.
+    if (recordingsError) {
+      readRecordings()
+      if (recordingsError) return
+      host.setRecordings(recordings)
+      send(CH.recordings, recordings)
+    }
+    if (!recordingStore.add(r)) return
     recordings = [...recordings, r]
     saveRecordingsSoon()
     send(CH.recordings, recordings)
@@ -454,6 +492,7 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
+  flushRecordings()
   loadGen.stop()
   void host.stop().then(() => app.quit())
 })

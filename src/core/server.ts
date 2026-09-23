@@ -44,6 +44,36 @@ import {
 type Planned = ReturnType<Engine['plan']>
 
 const MAX_BODY = 64 * 1024 * 1024
+const MAX_PENDING_FAULTS = 1000
+const MAX_EMBED_INPUTS = 2048
+const MAX_MODELS = 1000
+
+/** The path and query of a request, parsed: an absolute-form target keeps only its path. */
+const forwardPath = (req: IncomingMessage): string => {
+  const u = new URL(req.url ?? '/', 'http://localhost')
+  return `${u.pathname}${u.search}`
+}
+
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1'])
+const LOCAL_NAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+/**
+ * Why a control-API request is refused, or '' to serve it. The control API reconfigures
+ * the server (mode, upstream, rules) and returns every prompt it has seen, so it answers
+ * only this machine, only to a local host name (a page that rebinds its own name to
+ * 127.0.0.1 is refused), and reads bodies only when they are JSON - which a web page
+ * cannot send without a CORS preflight, and preflights are never answered here.
+ */
+function controlRefusal(req: IncomingMessage, method: string): string {
+  if (!LOOPBACK.has(req.socket.remoteAddress ?? ''))
+    return 'the control API answers this machine only'
+  const host = (req.headers.host ?? '').replace(/:\d+$/, '').toLowerCase()
+  if (!LOCAL_NAMES.has(host)) return 'the control API answers localhost only'
+  const hasBody = method !== 'GET' && method !== 'HEAD' && method !== 'DELETE'
+  if (hasBody && !String(req.headers['content-type'] ?? '').includes('application/json'))
+    return 'the control API takes JSON bodies only (Content-Type: application/json)'
+  return ''
+}
 /** A "hang" fault gives up after this long, so a forgotten client cannot hold a slot forever. */
 const HANG_LIMIT_MS = 10 * 60 * 1000
 
@@ -258,6 +288,8 @@ export class MockServer {
   private appVersion: string
   /** Called with each new recording (the host saves it to recordings.json). */
   onRecorded: ((r: Recording) => void) | null = null
+  /** Called when the control API changes the config or the rules (the host saves them). */
+  onControlChange: ((change: { config?: MockConfig; rules?: RulesFile }) => void) | null = null
   private scheduler: Scheduler
   private models: string[]
   private pendingFaults: FaultMode[] = []
@@ -337,7 +369,12 @@ export class MockServer {
     this.config = { ...next, host: this.config.host, port: this.config.port }
     this.engine.setOptions({ seed: next.seed })
     this.scheduler.resize(next.numParallel, next.maxQueue)
-    if (next.models.join(',') !== prevModels) this.models = next.models.map(normalizeModel)
+    if (next.models.join(',') !== prevModels) {
+      const before = prevModels.split(',').filter(Boolean).map(normalizeModel)
+      const after = next.models.map(normalizeModel)
+      this.models = this.models.filter((m) => after.includes(m) || !before.includes(m))
+      for (const m of after) if (!this.models.includes(m)) this.addModel(m)
+    }
     if (this.server) this.upstream.configure(next.mode !== 'mock', next.upstream)
   }
 
@@ -371,7 +408,8 @@ export class MockServer {
   }
 
   injectFault(mode: FaultMode, count = 1): void {
-    for (let i = 0; i < Math.min(count, 1000); i++) this.pendingFaults.push(mode)
+    const room = MAX_PENDING_FAULTS - this.pendingFaults.length
+    for (let i = 0; i < Math.min(count, room); i++) this.pendingFaults.push(mode)
   }
 
   clearFaults(): void {
@@ -503,7 +541,12 @@ export class MockServer {
           return await this.embeddings('openai', req, res, await readBody(req))
       }
       if (method === 'GET' && p.startsWith('/v1/models/')) {
-        const name = decodeURIComponent(p.slice('/v1/models/'.length))
+        let name: string
+        try {
+          name = decodeURIComponent(p.slice('/v1/models/'.length))
+        } catch {
+          return fail(res, 404, 'model not found')
+        }
         if (!this.knows(name)) return fail(res, 404, `model "${name}" not found`)
         return sendJson(res, 200, this.openaiModel(normalizeModel(name)))
       }
@@ -520,6 +563,10 @@ export class MockServer {
   }
 
   // --- models --------------------------------------------------------------------
+
+  private addModel(name: string): void {
+    if (this.models.length < MAX_MODELS) this.models.push(normalizeModel(name))
+  }
 
   private knows(name: string): boolean {
     return this.models.some((m) => sameModel(m, name))
@@ -645,7 +692,7 @@ export class MockServer {
         })
       line({ status: 'verifying sha256 digest' })
       line({ status: 'writing manifest' })
-      if (!this.knows(name)) this.models.push(name)
+      if (!this.knows(name)) this.addModel(name)
       if (stream) {
         line({ status: 'success' })
         res.end()
@@ -659,7 +706,7 @@ export class MockServer {
     const b = isObj(body) ? body : {}
     const name = str(b.model) || str(b.name)
     if (!name) throw new HttpError(400, 'model is required')
-    if (!this.knows(name)) this.models.push(normalizeModel(name))
+    if (!this.knows(name)) this.addModel(name)
     if (b.stream === false) {
       sendJson(res, 200, { status: 'success' })
       return
@@ -681,7 +728,7 @@ export class MockServer {
     const dst = str(b.destination)
     if (!src || !dst) throw new HttpError(400, 'source and destination are required')
     if (!this.knows(src)) throw new HttpError(404, `model "${src}" not found`)
-    if (!this.knows(dst)) this.models.push(normalizeModel(dst))
+    if (!this.knows(dst)) this.addModel(dst)
     res.writeHead(200).end()
   }
 
@@ -840,7 +887,8 @@ export class MockServer {
 
     if (fault === 'error500') {
       rec.state = 'waiting'
-      await sleep(Math.min(jittered(Math.random, cfg.ttftMs, cfg.jitter), 1000), signal)
+      const waited = Math.min(jittered(Math.random, cfg.ttftMs, cfg.jitter), 1000)
+      if (!(await sleep(waited, signal))) throw new AbortedError()
       const msg = 'mock: injected internal server error'
       fail(res, 500, msg)
       this.monitor.finish(rec, 'error', 500, msg)
@@ -863,8 +911,12 @@ export class MockServer {
     const writer = this.writerFor(api, res, parsed)
     const tps = plan.tps ?? cfg.tps
     const interval = tps > 0 ? 1000 / tps : 0
+    // Where a disconnect or broken-line fault cuts in: 40% in, at least after one token,
+    // and never past the end - a reply of one token (or only tool calls) is cut too.
     const breakAt =
-      fault === 'disconnect' || fault === 'malformed' ? Math.max(1, Math.floor(budget * 0.4)) : -1
+      fault === 'disconnect' || fault === 'malformed'
+        ? Math.min(Math.max(1, Math.floor(budget * 0.4)), budget)
+        : -1
     const streamStart = Date.now()
     let due = streamStart
     let emitted = 0
@@ -872,6 +924,19 @@ export class MockServer {
     let thinking = ''
 
     const all = sequence.slice(0, budget)
+    const cut = async () => {
+      if (fault === 'malformed') {
+        writer.garbage()
+        res.end()
+        this.monitor.finish(rec, 'error', 200, 'mock: injected malformed JSON')
+      } else {
+        // Let what was written reach the client first, then drop the connection.
+        await new Promise<void>((resolve) => res.write('', () => resolve()))
+        await sleep(20, signal)
+        res.destroy()
+        this.monitor.finish(rec, 'error', 200, 'mock: injected disconnect')
+      }
+    }
 
     for (const tok of all) {
       if (interval > 0) {
@@ -882,20 +947,7 @@ export class MockServer {
         if (wait > 1 && !(await sleep(wait, signal))) throw new AbortedError()
       }
       if (signal.aborted) throw new AbortedError()
-      if (emitted === breakAt) {
-        if (fault === 'malformed') {
-          writer.garbage()
-          res.end()
-          this.monitor.finish(rec, 'error', 200, 'mock: injected malformed JSON')
-        } else {
-          // Let what was written reach the client first, then drop the connection.
-          await new Promise<void>((resolve) => res.write('', () => resolve()))
-          await sleep(20, signal)
-          res.destroy()
-          this.monitor.finish(rec, 'error', 200, 'mock: injected disconnect')
-        }
-        return
-      }
+      if (emitted === breakAt) return cut()
       rec.state = tok.think ? 'thinking' : 'streaming'
       if (tok.think) {
         writer.thinking(tok.t)
@@ -907,6 +959,8 @@ export class MockServer {
       this.monitor.addTokens(rec, tok.t, tok.think)
       emitted++
     }
+
+    if (emitted === breakAt) return cut()
 
     if (!truncated && plan.toolCalls.length) {
       if (!rec.t.firstToken) rec.t.firstToken = Date.now()
@@ -953,7 +1007,7 @@ export class MockServer {
         await forward({
           upstream: this.config.upstream,
           method,
-          path: req.url ?? '/',
+          path: forwardPath(req),
           headers: req.headers,
           body: req,
           res,
@@ -982,7 +1036,7 @@ export class MockServer {
         await forward({
           upstream: this.config.upstream,
           method,
-          path: req.url ?? '/',
+          path: forwardPath(req),
           headers: req.headers,
           body: raw,
           res,
@@ -1066,7 +1120,7 @@ export class MockServer {
       const result = await forward({
         upstream: this.config.upstream,
         method: req.method ?? 'POST',
-        path: req.url ?? '/',
+        path: forwardPath(req),
         headers: req.headers,
         body: raw,
         res,
@@ -1108,11 +1162,13 @@ export class MockServer {
       }
       if (toolCalls.length) rec.responseText += `\n[tool_calls] ${JSON.stringify(toolCalls)}`
 
-      const ok = !result.aborted && !result.faulted && result.status < 400
+      const ok = !result.aborted && !result.faulted && !result.broken && result.status < 400
       if (ok && this.config.record && parsed)
         this.record(api, rec, parsed.prompt, parsed.stream, chunks, thinkingChunks, toolCalls)
 
       if (result.aborted) this.monitor.finish(rec, 'aborted', 499, 'client disconnected')
+      else if (result.broken)
+        this.monitor.finish(rec, 'error', 502, 'the upstream reply broke off before its end')
       else if (result.faulted)
         this.monitor.finish(rec, 'error', result.status, `mock: injected ${fault}`)
       else if (result.status >= 400)
@@ -1171,7 +1227,13 @@ export class MockServer {
       recordedAt: new Date(now).toISOString(),
       source: this.config.upstream,
     }
-    if (this.recordings.add(recording)) this.onRecorded?.(recording)
+    if (!this.recordings.add(recording)) return
+    try {
+      this.onRecorded?.(recording)
+    } catch (e) {
+      // Saving is the host's business; the reply itself went through fine.
+      console.error('recording not saved:', e instanceof Error ? e.message : e)
+    }
   }
 
   // --- embeddings ------------------------------------------------------------------
@@ -1187,9 +1249,9 @@ export class MockServer {
     const model = str(body.model)
     this.checkModel(model)
     const input = kind === 'legacy' ? body.prompt : body.input
-    const inputs = (Array.isArray(input) ? input : [input]).map((x) =>
-      typeof x === 'string' ? x : '',
-    )
+    const inputs = (Array.isArray(input) ? input : [input])
+      .slice(0, MAX_EMBED_INPUTS)
+      .map((x) => (typeof x === 'string' ? x : ''))
     const path = new URL(req.url ?? '/', 'http://localhost').pathname
     const rec = this.monitor.create(
       kind === 'openai' ? 'openai-embed' : 'embed',
@@ -1256,7 +1318,9 @@ export class MockServer {
         return
       }
       const dimsReq =
-        typeof body.dimensions === 'number' && body.dimensions > 0 ? body.dimensions : 0
+        typeof body.dimensions === 'number' && body.dimensions >= 1
+          ? Math.min(8192, Math.floor(body.dimensions))
+          : 0
       const dim = dimsReq || this.config.embedDim
       const vectors = inputs.map((s) => embed(s, dim, model))
       const totalNs = (Date.now() - began) * 1e6
@@ -1307,6 +1371,11 @@ export class MockServer {
     req: IncomingMessage,
     res: ServerResponse,
   ): Promise<void> {
+    const refused = controlRefusal(req, method)
+    if (refused) {
+      sendJson(res, 403, { error: refused })
+      return
+    }
     try {
       const key = `${method} ${p}`
       switch (key) {
@@ -1337,6 +1406,7 @@ export class MockServer {
           return sendJson(res, 200, { recordings: this.recordings.all() })
         case 'PUT /_mock/rules':
           this.setRules(normalizeRules(await readBody(req)))
+          this.onControlChange?.({ rules: this.engine.getRules() })
           return sendJson(res, 200, this.engine.getRules())
         case 'GET /_mock/config':
           return sendJson(res, 200, this.config)
@@ -1344,6 +1414,7 @@ export class MockServer {
           const patch = await readBody(req)
           if (!isObj(patch)) throw new HttpError(400, 'expected an object')
           this.setConfig(patchConfig(this.config, patch))
+          this.onControlChange?.({ config: this.config })
           return sendJson(res, 200, this.config)
         }
         case 'POST /_mock/fault': {

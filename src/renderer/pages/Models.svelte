@@ -32,8 +32,9 @@ function caps(name: string): string[] {
   return c
 }
 
-async function save(models: string[]) {
-  await store.saveConfig({ models }, t('models.saved'))
+/** Saves a change to the model list, applied to the list as it is when the save runs. */
+function change(edit: (models: string[]) => string[]) {
+  void store.updateConfig((c) => ({ models: edit(c.models) }), t('models.saved'))
 }
 function add() {
   const names = adding
@@ -41,11 +42,14 @@ function add() {
     .map((s) => s.trim())
     .filter(Boolean)
   if (!names.length) return
-  void save([...(store.config?.models ?? []), ...names.filter((n) => !saved.includes(norm(n)))])
+  change((list) => [...list, ...names.filter((n) => !list.map(norm).includes(norm(n)))])
   adding = ''
 }
 function remove(name: string) {
-  void save((store.config?.models ?? []).filter((m) => norm(m) !== name))
+  change((list) => list.filter((m) => norm(m) !== name))
+}
+function keep(name: string) {
+  change((list) => (list.map(norm).includes(name) ? list : [...list, name]))
 }
 </script>
 
@@ -125,7 +129,7 @@ function remove(name: string) {
             </td>
             <td class="r">
               {#if extra.includes(m)}
-                <button class="btn sm" onclick={() => save([...(store.config?.models ?? []), m])}>{t('models.keep')}</button>
+                <button class="btn sm" onclick={() => keep(m)}>{t('models.keep')}</button>
               {:else}
                 <button class="btn sm icon ghost" title={t('models.remove')} onclick={() => remove(m)}><Icon name="trash" size={13} /></button>
               {/if}

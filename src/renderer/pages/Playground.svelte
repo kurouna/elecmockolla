@@ -30,6 +30,7 @@ let doneMs = $state(0)
 let chunks = $state(0)
 /** The reply outgrew MAX_TEXT and its start is no longer shown. */
 let clipped = $state(false)
+let cancelled = $state(false)
 let preview = $state<TestResult | null>(null)
 /** Only the newest preview is shown; an older one arriving late is dropped. */
 let previewSeq = 0
@@ -86,7 +87,9 @@ $effect(() => {
         running = null
         break
       case 'error':
-        error = e.message
+        // main says "cancelled" when the user pressed Cancel: that is not a failure.
+        error = e.message === 'cancelled' ? '' : e.message
+        cancelled = e.message === 'cancelled'
         running = null
         break
     }
@@ -105,8 +108,13 @@ $effect(() => {
   return () => clearTimeout(t)
 })
 
+/** Between asking main to send and getting the request id back. */
+let starting = false
+let gone = false
+
 async function send() {
-  if (running !== null) return
+  if (running !== null || starting) return
+  starting = true
   content = ''
   thinking = ''
   raw = []
@@ -116,16 +124,23 @@ async function send() {
   doneMs = 0
   chunks = 0
   clipped = false
+  cancelled = false
   t0 = performance.now()
   const id = await api.playground({ api: kind, model, prompt, system, stream, think, json })
+  starting = false
   if (id < 0) {
     error = t('pg.notRunning')
+    return
+  }
+  if (gone) {
+    void api.cancelPlayground(id)
     return
   }
   running = id
 }
 
 onDestroy(() => {
+  gone = true
   if (running !== null) void api.cancelPlayground(running)
 })
 
@@ -218,6 +233,7 @@ const ttftMs = $derived(firstAt ? firstAt - t0 : 0)
     </div>
     <div class="card-body body">
       {#if error}<div class="err mono">{error}</div>{/if}
+      {#if cancelled}<div class="muted cancelled">{t('pg.cancelled')}</div>{/if}
       {#if showRaw}
         <pre class="raw">{raw.join('\n')}</pre>
       {:else}
@@ -311,6 +327,10 @@ const ttftMs = $derived(firstAt ? firstAt - t0 : 0)
     font-size: 13.5px;
     line-height: 1.7;
     font-family: var(--font);
+  }
+  .cancelled {
+    font-size: 12px;
+    margin-bottom: 8px;
   }
   .clipped {
     font-size: 11px;

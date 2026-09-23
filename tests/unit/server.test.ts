@@ -1,3 +1,4 @@
+import { request } from 'node:http'
 import { Ollama } from 'ollama'
 import OpenAI from 'openai'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -277,22 +278,83 @@ describe('scheduling, timing and faults', () => {
 
   it('exposes the control API', async () => {
     const { server, url } = await startServer()
+    const json = { 'Content-Type': 'application/json' }
     try {
       const t = await fetch(`${url}/_mock/test`, {
         method: 'POST',
+        headers: json,
         body: JSON.stringify({ prompt: 'hello' }),
       })
       expect(await t.json()).toMatchObject({ match: { id: 'greeting' } })
       const c = await fetch(`${url}/_mock/config`, {
         method: 'PATCH',
+        headers: json,
         body: JSON.stringify({ tps: 7 }),
       })
       expect(await c.json()).toMatchObject({ tps: 7 })
       const bad = await fetch(`${url}/_mock/rules`, {
         method: 'PUT',
+        headers: json,
         body: JSON.stringify({ rules: [{ match: { kind: 'regex', pattern: '(' }, response: {} }] }),
       })
       expect(bad.status).toBe(400)
+    } finally {
+      await server.stop()
+    }
+  })
+
+  it('refuses control requests a web page could make', async () => {
+    const { server, url } = await startServer()
+    try {
+      // A form-style POST (no preflight) is refused, so a page cannot inject faults or reset.
+      const plain = await fetch(`${url}/_mock/fault`, {
+        method: 'POST',
+        body: JSON.stringify({ mode: 'hang', count: 1000 }),
+      })
+      expect(plain.status).toBe(403)
+      // DNS rebinding: a request that reaches 127.0.0.1 under a foreign name is refused.
+      const port = new URL(url).port
+      const rebound = await new Promise<number>((resolve) => {
+        const r = request(
+          { host: '127.0.0.1', port, path: '/_mock/config', headers: { Host: 'evil.example' } },
+          (res) => resolve(res.statusCode ?? 0),
+        )
+        r.end()
+      })
+      expect(rebound).toBe(403)
+      expect(server.snapshot(false).pendingFaults).toEqual([])
+    } finally {
+      await server.stop()
+    }
+  })
+
+  it('cuts even a reply of one token when a disconnect is injected', async () => {
+    const { server, url } = await startServer()
+    try {
+      server.injectFault('disconnect')
+      await fetch(`${url}/api/generate`, {
+        method: 'POST',
+        body: JSON.stringify({ model: 'm', prompt: 'hello', options: { num_predict: 1 } }),
+      })
+        .then((r) => r.text())
+        .catch(() => '')
+      await new Promise((r) => setTimeout(r, 50))
+      expect(server.monitor.recent().at(-1)).toMatchObject({ state: 'error', fault: 'disconnect' })
+    } finally {
+      await server.stop()
+    }
+  })
+
+  it('keeps inputs within bounds', async () => {
+    const { server, url } = await startServer()
+    try {
+      const e = await fetch(`${url}/api/embed`, {
+        method: 'POST',
+        body: JSON.stringify({ model: 'nomic-embed-text', input: 'x', dimensions: 2e7 }),
+      })
+      expect(((await e.json()) as { embeddings: number[][] }).embeddings[0]).toHaveLength(8192)
+      const bad = await fetch(`${url}/v1/models/%E0`)
+      expect(bad.status).toBe(404)
     } finally {
       await server.stop()
     }

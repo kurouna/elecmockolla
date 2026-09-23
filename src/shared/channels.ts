@@ -27,4 +27,6 @@ export const CH = {
   playgroundEvent: 'mockolla:playground-event',
   loadGenStatus: 'mockolla:load-gen-status',
   recordings: 'mockolla:recordings',
+  config: 'mockolla:config',
+  rules: 'mockolla:rules',
 } as const

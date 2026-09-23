@@ -44,6 +44,8 @@ const api: MockollaApi = {
   onPlayground: listen(CH.playgroundEvent),
   onLoadGen: listen(CH.loadGenStatus),
   onRecordings: listen(CH.recordings),
+  onConfig: listen(CH.config),
+  onRules: listen(CH.rules),
 } as MockollaApi
 
 contextBridge.exposeInMainWorld('mockolla', api)

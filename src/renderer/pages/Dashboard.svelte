@@ -47,10 +47,9 @@ const live = $derived.by(() => {
   return act.at(-1) ?? store.history.findLast((r) => r.responseText && r.api !== 'pull') ?? null
 })
 
-async function setParallel(delta: number) {
-  if (!cfg) return
-  const n = Math.max(1, Math.min(64, cfg.numParallel + delta))
-  await store.saveConfig({ numParallel: n }, t('dash.parallelSaved', { n }))
+function setParallel(delta: number) {
+  const next = (c: { numParallel: number }) => Math.max(1, Math.min(64, c.numParallel + delta))
+  void store.updateConfig((c) => ({ numParallel: next(c) }), '')
 }
 </script>
 

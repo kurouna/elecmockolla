@@ -185,9 +185,21 @@ async function main(): Promise<void> {
   const recordingsPath = loaded.recordingsPath
   const recordings = loadRecordings(recordingsPath)
   const server = new MockServer({ config, rules, recordings, appVersion: version() })
+  // Recordings are saved a moment after the last one (not on every reply), and on shutdown.
+  let saveTimer: NodeJS.Timeout | undefined
+  const saveNow = () => {
+    clearTimeout(saveTimer)
+    saveTimer = undefined
+    try {
+      saveRecordings(recordingsPath, recordings)
+    } catch (e) {
+      console.error(paint(c.red, `  recordings not saved: ${e instanceof Error ? e.message : e}`))
+    }
+  }
   server.onRecorded = (r) => {
     recordings.push(r)
-    saveRecordings(recordingsPath, recordings)
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(saveNow, 300)
     if (!values.quiet)
       console.log(paint(c.red, `  ● recorded "${r.prompt.slice(0, 50)}" (${r.model})`))
   }
@@ -239,6 +251,7 @@ async function main(): Promise<void> {
   }
 
   const shutdown = () => {
+    if (saveTimer) saveNow()
     void server.stop().then(() => process.exit(0))
     setTimeout(() => process.exit(0), 2000).unref()
   }
