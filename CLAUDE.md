@@ -12,6 +12,7 @@ npm install          # postinstall downloads Electron (install-electron)
 npm start            # the app (electron-vite dev); creates .env and rules.json in the project
 npm run serve        # the server alone, from source (node src/core/cli.ts serve)
 npm run verify       # biome + typecheck (node, web) + vitest
+npm run test:e2e     # Playwright drives the built app (tests/e2e); build first
 npm run build        # out/ ; `npm run screenshots` needs it
 npm run gen:icon     # build/icon.svg -> build/icon.png, resources/icons/icon.png
 ```
@@ -36,6 +37,7 @@ src/preload/   window.mockolla, the only bridge
 src/shared/    types and the IPC contract (type-only, except channels.ts)
 src/renderer/  Svelte UI: lib/state.svelte.ts is the single store; pages/, components/
 tests/unit/    vitest; server tests use the official ollama and openai clients
+tests/e2e/     Playwright + Electron; each spec starts the app with its own folder and port
 ```
 
 ## Rules

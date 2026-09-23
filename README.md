@@ -53,7 +53,7 @@ Or download the app from [Releases](https://github.com/kurouna/elecmockolla/rele
 | Linux arm64 | `elecmockolla-linux-arm64-<version>.AppImage` or `elecmockolla-linux-arm64-<version>.deb` |
 
 The Windows builds are the ones the author runs. The macOS and Linux builds come out of the same
-release workflow and pass the unit tests on GitHub's runners, but have had no hands-on testing:
+release workflow and pass the unit and e2e tests on GitHub's runners, but have had no hands-on testing:
 treat them as not sufficiently verified. The packaged app keeps `.env` and `rules.json` in the
 user data folder (see [Settings](#settings)).
 
@@ -320,6 +320,7 @@ the UI.
 
 ```bash
 npm run verify        # biome + typecheck + vitest
+npm run test:e2e      # build first; drives the app with Playwright
 npm run build         # production bundle into out/
 npm run screenshots   # build first; saves every page to docs/screenshots (MOCKOLLA_LANG=ja for Japanese)
 npm run package       # installers into release/
@@ -341,7 +342,7 @@ main. See [CLAUDE.md](CLAUDE.md) for the layout and the rules.
    x64 and arm64).
 4. Review the pre-release and, when it is ready, untick "Set as a pre-release".
 
-[CI](.github/workflows/ci.yml) runs lint, typecheck and the unit tests (Windows, macOS, Linux) on
+[CI](.github/workflows/ci.yml) runs lint, typecheck, the unit tests and the e2e tests (Windows, macOS, Linux) on
 every push to `main` and every pull request, and packages the app for each OS.
 
 ## License

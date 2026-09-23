@@ -6,6 +6,8 @@ release/
 *.tsbuildinfo
 .svelte-check/
 coverage/
+playwright-report/
+test-results/
 
 # editors / os
 .DS_Store

@@ -65,7 +65,7 @@ jobs:
 
           The mock listens on `127.0.0.1:11434`, Ollama's port. If Ollama runs on the same machine, change the port in **Settings**.
 
-          macOS and Linux builds pass the unit tests on GitHub's runners but have had no hands-on testing yet.
+          macOS and Linux builds pass the unit and e2e tests on GitHub's runners but have had no hands-on testing yet.
 
           ## インストール：ビルドは未署名です
 
@@ -77,7 +77,7 @@ jobs:
 
           モックは Ollama と同じ `127.0.0.1:11434` で待ち受けます。同じ PC で Ollama を動かしている場合は「**設定**」でポートを変えてください。
 
-          macOS 版と Linux 版は GitHub のランナーで単体テストを通していますが、実機での確認はまだです。
+          macOS 版と Linux 版は GitHub のランナーで単体テストと e2e テストを通していますが、実機での確認はまだです。
 
           EOF
           gh release create "$TAG" --prerelease --verify-tag --title "elecmockolla ${TAG#v}" \
