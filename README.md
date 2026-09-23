@@ -41,6 +41,70 @@ npm run cli -- init               # write .env and rules.json
 npm run cli -- --help
 ```
 
+## Install
+
+Or download the app from [Releases](https://github.com/kurouna/elecmockolla/releases):
+
+| Platform | File |
+| --- | --- |
+| Windows x64 / arm64 | `elecmockolla-win-x64-<version>.exe` (installer) or `.zip` (no install) |
+| macOS Apple silicon / Intel | `elecmockolla-mac-arm64-<version>.dmg` / `elecmockolla-mac-x64-<version>.dmg` |
+| Linux x64 | `elecmockolla-linux-x86_64-<version>.AppImage` or `elecmockolla-linux-amd64-<version>.deb` |
+| Linux arm64 | `elecmockolla-linux-arm64-<version>.AppImage` or `elecmockolla-linux-arm64-<version>.deb` |
+
+The Windows builds are the ones the author runs. The macOS and Linux builds come out of the same
+release workflow and pass the unit tests on GitHub's runners, but have had no hands-on testing:
+treat them as not sufficiently verified. The packaged app keeps `.env` and `rules.json` in the
+user data folder (see [Settings](#settings)).
+
+### If a warning appears
+
+The installers are not code-signed: a certificate costs more than a personal project can carry. So
+Windows and macOS warn before the first run. The warnings mean the publisher is unknown to them, not
+that anything was found in the file. If you want to check a download first, the release page lists
+every file's SHA-256 checksum. Each installer is built from the tagged source by the
+[release workflow](.github/workflows/release.yml) on GitHub's runners. These steps are needed once
+per install.
+
+**Windows**
+
+1. The browser may hold the download back ("isn't commonly downloaded"). In Edge, open the download's
+   *⋯* menu → *Keep* → *Show more* → *Keep anyway*. In Chrome, choose *Keep*.
+2. Run the `.exe`. SmartScreen shows **"Windows protected your PC"**: click **More info**, then
+   **Run anyway**.
+3. The installer installs for your user only, so it asks for no administrator rights.
+
+If Windows says the file was blocked and offers no *Run anyway*, right-click the `.exe` →
+*Properties* → tick **Unblock** → *OK*, and run it again.
+
+**macOS** (15 Sequoia and later; older versions in the last step)
+
+1. Open the `.dmg` and drag **elecmockolla** into *Applications*.
+2. Open elecmockolla from *Applications*. macOS says it **"could not verify 'elecmockolla' is free of
+   malware"**: click **Done** (not *Move to Trash*).
+3. Open **System Settings → Privacy & Security**, scroll to *Security*, and click **Open Anyway**
+   beside the line about elecmockolla. Confirm with your password or Touch ID, then **Open Anyway**
+   again.
+4. On macOS 14 or earlier, right-click the app → **Open** → **Open** does the same.
+
+If macOS instead says **"elecmockolla is damaged and can't be opened"**, the file is not damaged.
+The quarantine mark from the download is what stops it. Remove the mark and open the app again:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/elecmockolla.app
+```
+
+**Linux** (no warning, but two things to know)
+
+- **deb** (Debian, Ubuntu): `sudo apt install ./elecmockolla-linux-amd64-<version>.deb`. It also
+  installs the AppArmor profile that Ubuntu 24.04 and later need before Electron's sandbox can start.
+- **AppImage**: `chmod +x elecmockolla-linux-*.AppImage` and run it. It needs FUSE 2 (`libfuse2`, or
+  `libfuse2t64` on Ubuntu 24.04). On Ubuntu 24.04 and later it may stop with a message about the
+  *SUID sandbox helper*, because AppArmor blocks the sandbox there. Use the deb in that case. Do not
+  start it with `--no-sandbox`: the sandbox is what keeps the renderer away from your files.
+
+インストーラーは未署名のため、Windows と macOS は初回起動時に警告を出します。手順は上のとおりです。
+
 ## What makes it different
 
 Other mock servers ([fake-ollama](https://github.com/spoonnotfound/fake-ollama),
@@ -265,6 +329,20 @@ npm run package       # installers into release/
 22.18+). `src/main` runs it in an Electron utility process, `src/renderer` is the Svelte 5 UI.
 The renderer is sandboxed and has no network: the playground and the load generator run in
 main. See [CLAUDE.md](CLAUDE.md) for the layout and the rules.
+
+### Releasing
+
+1. Set `version` in `package.json`, commit, and push.
+2. Tag that commit `v<version>` and push the tag: `git tag v0.1.0 && git push origin v0.1.0`.
+3. The [Release workflow](.github/workflows/release.yml) checks the tag against `package.json`,
+   runs `npm run verify`, creates a GitHub pre-release whose notes start with the unsigned-build
+   instructions (English and Japanese) followed by the generated changes, and attaches the builds
+   for Windows (x64, arm64; installer and zip), macOS (arm64, x64) and Linux (AppImage and deb,
+   x64 and arm64).
+4. Review the pre-release and, when it is ready, untick "Set as a pre-release".
+
+[CI](.github/workflows/ci.yml) runs lint, typecheck and the unit tests (Windows, macOS, Linux) on
+every push to `main` and every pull request, and packages the app for each OS.
 
 ## License
 
