@@ -43,7 +43,11 @@ src/main/      Electron main: index.ts (window, IPC), host.ts (utility process),
 src/preload/   window.mockolla, the only bridge
 src/shared/    types and the IPC contract (type-only, except channels.ts)
 src/renderer/  Svelte UI: lib/state.svelte.ts is the single store; pages/, components/
-tests/unit/    vitest; server tests use the official ollama and openai clients
+tests/unit/    vitest; server tests use the official ollama and openai clients. By area:
+               server, api (model management, control API, OpenAI extras), parallel (slots
+               really run at once), proxy, recordings, engine, chat-rules, defaults, upgrade,
+               config, files, cli (spawns src/core/cli.ts), client (main's playground and
+               load generator), export, elec
 tests/e2e/     Playwright + Electron; each spec starts the app with its own folder and port
 tests/fixtures/ rules-v0.0.1.json: the rules file a released version wrote (upgrade tests)
 scripts/       gen-icon, earlier-defaults, screenshots
@@ -67,6 +71,9 @@ scripts/       gen-icon, earlier-defaults, screenshots
   `serializeEnv` keeps variables it does not manage.
 - **The server never blocks the UI**: it runs in a utility process and sends a snapshot every
   200 ms. Snapshots are `$state.raw` in the renderer - replace, never mutate.
+- **Slots are truly parallel**: N requests on N slots take as long as one, in mock and proxy
+  modes (`tests/unit/parallel.test.ts` measures it). Never serialize request handling behind
+  a shared lock, one shared timer or a limited HTTP agent.
 - **Keep what crosses IPC small, and expect it to grow.** Rules and recordings will keep
   growing: the UI gets recording summaries (pushed at most every 500 ms) and fetches one
   recording when it is shown; long lists draw a bounded number of rows. The renderer must not
@@ -99,8 +106,18 @@ scripts/       gen-icon, earlier-defaults, screenshots
   English / 日本語.
 - Before a commit: `npm run verify`; after UI or main changes also `npm run build` and
   `npm run test:e2e`. CI must be green before a release.
-- Release: set `version` in package.json, commit, push, then tag `vX.Y.Z` and push the tag.
-  The workflow creates a pre-release (unsigned-build notes in English and Japanese, then the
-  generated changes); a person promotes it to a full release.
+- New code gets unit tests in the matching file above, including what must NOT happen.
+  To find gaps: `npm i --no-save @vitest/coverage-v8@<vitest version>` then
+  `npx vitest run --coverage --coverage.provider=v8 --coverage.include='src/core/**'`.
+- Release: `npm version X.Y.Z --no-git-tag-version`, update the version note at the top of
+  the README, commit, push, wait for CI to pass, then tag `vX.Y.Z` and push the tag. The
+  workflow checks the tag against package.json, runs verify, and creates a pre-release
+  (unsigned-build notes in English and Japanese, then the generated changes) with every
+  build; a person promotes it to a full release.
+- Dependencies: `npx npm-check-updates`, then `npm install` and `npm update`. Held back on
+  purpose: vite 8 and @sveltejs/vite-plugin-svelte 7 (electron-vite 5 supports vite up to 7),
+  TypeScript 7 (svelte-check supports up to 6), @types/node above 24 (Electron 44 runs Node
+  24). Close any running copy of the app first, or Windows keeps Electron's files locked
+  (EBUSY).
 - README screenshots come from `npm run screenshots` (build first). Screenshot mode hides the
   settings folder path and types `hello` into the rule tester.
