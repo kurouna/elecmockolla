@@ -132,6 +132,33 @@ into a real stream. Parallel slots still apply, so set them at least as high as 
 プロキシモードでは本物の Ollama にそのまま中継しつつ、通信をダッシュボードに記録します。
 混在モードはルールに一致したものだけダミーで返し、残りを Ollama に渡します。
 
+## Recordings
+
+Record the real Ollama once, then play its replies back without it — for demos, videos and CI
+that need real-looking answers but no GPU.
+
+- **Record** (`MOCKOLLA_RECORD=true`, `--record`, off by default): in proxy and mixed modes,
+  every reply Ollama gives is saved to `recordings.json` next to `.env` — the input as it was,
+  and the reply as it streamed: its chunks, thinking, tool calls, time to first token and speed.
+  The first reply to a prompt is kept.
+- **Play back** (`MOCKOLLA_REPLAY=true`, `--replay`, off by default): in mock and mixed modes, a
+  recorded prompt gets its recorded reply, chunk for chunk at the recorded speed, before any
+  rule. In mixed mode it no longer reaches Ollama. Proxy mode never plays back.
+- **Matching** ignores case, full/half width, spaces, punctuation and symbols:
+  `Hello, world!` and `hello world` are the same prompt. The model must be the same, and so must
+  the whole conversation (system prompt and every message). Replies are returned verbatim —
+  `{{...}}` and `$1` in a recording are never expanded.
+- The **Recordings** tab of the Rules page lists them, shows each one with its chunk boundaries,
+  and deletes them. A red **REC** badge in the title bar shows recording is on.
+
+```bash
+npm run serve -- --mode proxy --port 11435 --record   # use your app against the real model
+npm run serve -- --replay                              # later: the same answers, no Ollama
+```
+
+本物の Ollama の返答を `recordings.json` に録画し、あとでモックがそのまま再生します。
+照合では大文字小文字・全角半角・空白・句読点・記号を無視します。
+
 ## Settings
 
 Everything lives in `.env` (see [.env.example](.env.example)); the app edits the same file the
@@ -150,6 +177,8 @@ ignored from the environment, so a machine that runs the real Ollama does not mo
 | `MOCKOLLA_FAULT_RATE` / `MOCKOLLA_FAULT_MODE` | `0` / `random` | random fault injection |
 | `MOCKOLLA_RULES` | `rules.json` | rules file, relative to `.env` |
 | `MOCKOLLA_MODE` / `MOCKOLLA_UPSTREAM` | `mock` / `http://127.0.0.1:11434` | proxy and mixed modes, the real Ollama |
+| `MOCKOLLA_RECORD` / `MOCKOLLA_REPLAY` | `false` / `false` | record Ollama's replies, play them back |
+| `MOCKOLLA_RECORDINGS` | `recordings.json` | recordings file, relative to `.env` |
 
 The packaged app keeps its files in the user data folder instead; `MOCKOLLA_HOME` overrides
 the folder in both cases.

@@ -60,7 +60,11 @@ function onKey(e: KeyboardEvent) {
       <span class="dot" class:live={st === 'running'} class:warn={st === 'starting' || st === 'stopping'} class:bad={st === 'error'}></span>
       {#if st === 'running'}
         <button class="url mono" title={t('app.copyUrl')} onclick={() => store.copy(store.status.url, t('app.urlCopied'))}>
-          {store.status.url}
+          <em>Ollama</em>{store.status.url}
+          <Icon name="copy" size={12} />
+        </button>
+        <button class="url mono" title={t('app.copyOpenai')} onclick={() => store.copy(`${store.status.url}/v1`, t('app.urlCopied'))}>
+          <em>OpenAI</em>{store.status.url}/v1
           <Icon name="copy" size={12} />
         </button>
         <span class="muted">{t('app.uptime', { time: fmtUptime((snap?.now ?? 0) - (snap?.startedAt ?? 0)) })}</span>
@@ -76,6 +80,11 @@ function onKey(e: KeyboardEvent) {
             <span class="dot" class:live={up?.ok} class:bad={up !== null && up.checkedAt > 0 && !up.ok}></span>
             {t(`mode.${mode}`)} → {store.config.upstream.replace(/^https?:\/\//, '')}
           </button>
+          {#if store.config.record}
+            <button class="rec" title={t('app.recTitle', { path: store.recordingsPath })} onclick={() => (store.page = 'rules')}>
+              <span class="recdot"></span>{t('app.rec', { n: store.recordings.length })}
+            </button>
+          {/if}
         {/if}
       {:else}
         <span class="st">{t(`server.${st}`)}</span>
@@ -197,9 +206,14 @@ function onKey(e: KeyboardEvent) {
   .status {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex: 1;
     min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .status > * {
+    flex-shrink: 0;
   }
   .url {
     display: inline-flex;
@@ -216,6 +230,11 @@ function onKey(e: KeyboardEvent) {
   .url:hover {
     border-color: var(--accent);
   }
+  .url em {
+    font: 600 10px var(--font);
+    font-style: normal;
+    color: var(--muted);
+  }
   .mode {
     display: inline-flex;
     align-items: center;
@@ -228,6 +247,31 @@ function onKey(e: KeyboardEvent) {
     color: var(--violet);
     font: 600 11px var(--mono);
     cursor: pointer;
+  }
+  .rec {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 9px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--red) 50%, var(--line-2));
+    background: var(--red-soft);
+    color: var(--red);
+    font: 600 11px var(--mono);
+    cursor: pointer;
+  }
+  .recdot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--red);
+    animation: recblink 1.4s ease-in-out infinite;
+  }
+  @keyframes recblink {
+    50% {
+      opacity: 0.25;
+    }
   }
   .mode.bad {
     border-color: var(--red);

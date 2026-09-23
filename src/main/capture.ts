@@ -46,6 +46,13 @@ export async function capturePages(
     if (i < 3) continue
     await open(i)
     await shot(name)
+    if (name === 'rules') {
+      // The recordings tab: the last button of the tab bar.
+      await js(`[...document.querySelectorAll('.top .seg button')].at(-1)?.click()`)
+      await wait(400)
+      await shot('recordings')
+      await js(`document.querySelector('.top .seg button')?.click()`)
+    }
   }
   await open(0)
   await shot('dashboard-2')

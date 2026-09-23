@@ -16,7 +16,7 @@ import {
   presetById,
   SERVER_MODES,
 } from './config.ts'
-import { initFiles, loadConfig, loadRules } from './files.ts'
+import { initFiles, loadConfig, loadRecordings, loadRules, saveRecordings } from './files.ts'
 import { RulesError } from './rules.ts'
 import { MockServer } from './server.ts'
 
@@ -41,6 +41,8 @@ Options:
       --strict            unknown models get 404
       --mode <mode>       mock | proxy (forward to a real Ollama) | mixed (rules first)
       --upstream <url>    the real Ollama for proxy and mixed (default: http://127.0.0.1:11434)
+      --record            save the real Ollama's replies to recordings.json (proxy, mixed)
+      --replay            answer recorded prompts with the recorded reply (mock, mixed)
       --json              log one JSON object per finished request
   -q, --quiet             no per-request log
   -h, --help
@@ -108,6 +110,8 @@ async function main(): Promise<void> {
       strict: { type: 'boolean' },
       mode: { type: 'string' },
       upstream: { type: 'string' },
+      record: { type: 'boolean' },
+      replay: { type: 'boolean' },
       json: { type: 'boolean' },
       quiet: { type: 'boolean', short: 'q' },
       force: { type: 'boolean' },
@@ -157,6 +161,8 @@ async function main(): Promise<void> {
       throw new Error(`unknown mode "${values.mode}" (mock, proxy or mixed)`)
     patch.mode = values.mode
   }
+  if (values.record) patch.record = true
+  if (values.replay) patch.replay = true
   if (values.upstream) {
     if (!normalizeUpstream(values.upstream))
       throw new Error(`--upstream must be an http(s) URL, got "${values.upstream}"`)
@@ -176,7 +182,15 @@ async function main(): Promise<void> {
   }
   if (cmd !== 'serve') throw new Error(`unknown command "${cmd}"\n\n${HELP}`)
 
-  const server = new MockServer({ config, rules })
+  const recordingsPath = loaded.recordingsPath
+  const recordings = loadRecordings(recordingsPath)
+  const server = new MockServer({ config, rules, recordings })
+  server.onRecorded = (r) => {
+    recordings.push(r)
+    saveRecordings(recordingsPath, recordings)
+    if (!values.quiet)
+      console.log(paint(c.red, `  ● recorded "${r.prompt.slice(0, 50)}" (${r.model})`))
+  }
   if (!values.quiet)
     server.monitor.onFinish = (r) => {
       if (values.json) {
@@ -202,6 +216,10 @@ async function main(): Promise<void> {
     `  speed      ttft ${config.ttftMs}ms, ${config.tps || '∞'} tok/s, ${config.numParallel} parallel, queue ${config.maxQueue}`,
   )
   console.log(`  models     ${config.models.join(', ')}`)
+  if (config.record || config.replay || recordings.length)
+    console.log(
+      `  recordings ${recordings.length} in ${recordingsPath}${config.record ? paint(c.red, ' ● recording') : ''}${config.replay ? ' (played back)' : ''}`,
+    )
   console.log(paint(c.dim, '  Ctrl+C to stop\n'))
 
   // Hot-reload the rules file when it changes on disk.

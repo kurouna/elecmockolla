@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { FaultMode, Rule, RulesFile, TestResult } from '../../shared/types.ts'
 import Icon from '../components/Icon.svelte'
+import Recordings from '../components/Recordings.svelte'
 import ResponseEditor from '../components/ResponseEditor.svelte'
 import Rich from '../components/Rich.svelte'
 import { matchLabel } from '../lib/format.ts'
@@ -22,7 +23,7 @@ const clone = (r: RulesFile | null): RulesFile =>
 
 const initial = clone(store.rules)
 let draft = $state<RulesFile>(initial)
-let tab = $state<'rules' | 'keywords' | 'fallback'>('rules')
+let tab = $state<'rules' | 'keywords' | 'fallback' | 'recordings'>('rules')
 let selId = $state<string | null>(initial.rules[0]?.id ?? null)
 let testPrompt = $state('hello')
 let testModel = $state('llama3.2:3b')
@@ -142,6 +143,9 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
       <button class:on={tab === 'rules'} onclick={() => (tab = 'rules')}>{t('rules.tab.rules')} <em>{draft.rules.length}</em></button>
       <button class:on={tab === 'keywords'} onclick={() => (tab = 'keywords')}>{t('rules.tab.keywords')} <em>{draft.keywords.length}</em></button>
       <button class:on={tab === 'fallback'} onclick={() => (tab = 'fallback')}>{t('rules.tab.fallback')}</button>
+      <button class:on={tab === 'recordings'} onclick={() => (tab = 'recordings')}
+        >{t('rules.tab.recordings')} <em>{store.recordings.length}</em></button
+      >
     </div>
     <span class="muted order">{t('rules.order')}</span>
     <span class="grow"></span>
@@ -150,12 +154,18 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
     <button class="btn sm primary" onclick={save} disabled={!dirty}><Icon name="save" size={13} />{t('common.save')}{dirty ? ' *' : ''}</button>
   </div>
 
-  {#if store.config?.mode === 'proxy'}
+  {#if tab === 'recordings'}
+    <!-- The recordings tab explains itself. -->
+  {:else if store.config?.mode === 'proxy'}
     <div class="note warn">{t('rules.proxyNote')}</div>
   {:else if store.config?.mode === 'mixed'}
     <div class="note">{t('rules.mixedNote')}</div>
   {/if}
+  {#if store.config?.replay && store.config.mode !== 'proxy' && store.recordings.length && tab !== 'recordings'}
+    <div class="note">{t('rules.replayNote')}</div>
+  {/if}
 
+  {#if tab !== 'recordings'}
   <div class="tester card">
     <Icon name="flask" size={15} />
     <input class="input" bind:value={testPrompt} placeholder={t('rules.tryPrompt')} />
@@ -169,6 +179,7 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
   </div>
   {#if result}
     <pre class="testout" class:bad={!!result.error}>{result.error ? `${result.error}\n` : ''}{result.toolCalls.length ? `→ ${result.toolCalls.map((t) => `${t.name}(${JSON.stringify(t.arguments)})`).join(', ')}` : result.text}</pre>
+  {/if}
   {/if}
 
   {#if tab === 'rules'}
@@ -299,13 +310,15 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
         <button class="btn sm add" onclick={addKeyword}><Icon name="plus" size={13} />{t('rules.kwAdd')}</button>
       </div>
     </section>
-  {:else}
+  {:else if tab === 'fallback'}
     <section class="card kw">
       <div class="card-body">
         <p class="muted intro">{t('rules.fallbackIntro')}</p>
         <ResponseEditor bind:spec={draft.fallback} />
       </div>
     </section>
+  {:else}
+    <Recordings />
   {/if}
 </div>
 

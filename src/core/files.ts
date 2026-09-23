@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import type { MockConfig, RulesFile } from '../shared/types.ts'
+import type { MockConfig, Recording, RulesFile } from '../shared/types.ts'
 import { applyEnv, defaultConfig, parseEnv, serializeEnv } from './config.ts'
+import { parseRecordings, recordingsToJson } from './recordings.ts'
 import { defaultRules, parseRules } from './rules.ts'
 
 /** Writes through a temp file, so a crash mid-save never leaves half a file. */
@@ -25,6 +26,15 @@ export const rulesToJson = (rules: RulesFile): string => `${JSON.stringify(rules
 
 export function saveRules(file: string, rules: RulesFile): void {
   writeAtomic(file, rulesToJson(rules))
+}
+
+/** Recorded replies from disk; none when the file does not exist. Throws RulesError when invalid. */
+export function loadRecordings(file: string): Recording[] {
+  return existsSync(file) ? parseRecordings(readFileSync(file, 'utf8')) : []
+}
+
+export function saveRecordings(file: string, recordings: Recording[]): void {
+  writeAtomic(file, recordingsToJson(recordings))
 }
 
 export function saveEnv(file: string, config: MockConfig): void {
@@ -51,6 +61,8 @@ export interface LoadedConfig {
   envExists: boolean
   /** Absolute path of the rules file. */
   rulesPath: string
+  /** Absolute path of the recordings file. */
+  recordingsPath: string
 }
 
 /** defaults < .env file < process.env (< CLI flags, applied by the caller). */
@@ -69,5 +81,6 @@ export function loadConfig(envPath: string, processEnv: NodeJS.ProcessEnv = {}):
     envPath: abs,
     envExists,
     rulesPath: path.resolve(path.dirname(abs), config.rulesPath),
+    recordingsPath: path.resolve(path.dirname(abs), config.recordingsPath),
   }
 }

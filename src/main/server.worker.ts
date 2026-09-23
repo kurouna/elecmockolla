@@ -3,17 +3,19 @@
  * server can never freeze the window. It is the same MockServer the CLI runs.
  *
  * Protocol over process.parentPort:
- *   in:  start {config, rules} | config {config} | rules {rules} | fault {mode, count}
- *        | clearFaults | reset | stop
- *   out: listening {url} | failed {message, code} | snapshot {snapshot} | stopped
+ *   in:  start {config, rules, recordings} | config {config} | rules {rules}
+ *        | recordings {recordings} | fault {mode, count} | clearFaults | reset | stop
+ *   out: listening {url} | failed {message, code} | snapshot {snapshot}
+ *        | recorded {recording} | stopped
  */
 import { MockServer } from '../core/server.ts'
-import type { FaultMode, MockConfig, RulesFile } from '../shared/types.ts'
+import type { FaultMode, MockConfig, Recording, RulesFile } from '../shared/types.ts'
 
 export type WorkerIn =
-  | { type: 'start'; config: MockConfig; rules: RulesFile }
+  | { type: 'start'; config: MockConfig; rules: RulesFile; recordings: Recording[] }
   | { type: 'config'; config: MockConfig }
   | { type: 'rules'; rules: RulesFile }
+  | { type: 'recordings'; recordings: Recording[] }
   | { type: 'fault'; mode: FaultMode; count: number }
   | { type: 'clearFaults' }
   | { type: 'reset' }
@@ -23,6 +25,7 @@ export type WorkerOut =
   | { type: 'listening'; url: string }
   | { type: 'failed'; message: string; code: string }
   | { type: 'snapshot'; snapshot: ReturnType<MockServer['snapshot']> }
+  | { type: 'recorded'; recording: Recording }
   | { type: 'stopped' }
 
 const SNAPSHOT_MS = 200
@@ -33,8 +36,9 @@ let timer: NodeJS.Timeout | null = null
 
 const send = (m: WorkerOut) => port.postMessage(m)
 
-async function start(config: MockConfig, rules: RulesFile): Promise<void> {
-  server = new MockServer({ config, rules })
+async function start(config: MockConfig, rules: RulesFile, recordings: Recording[]): Promise<void> {
+  server = new MockServer({ config, rules, recordings })
+  server.onRecorded = (recording) => send({ type: 'recorded', recording })
   try {
     const url = await server.start()
     send({ type: 'listening', url })
@@ -52,13 +56,16 @@ port.on('message', (e: { data: WorkerIn }) => {
   const m = e.data
   switch (m.type) {
     case 'start':
-      void start(m.config, m.rules)
+      void start(m.config, m.rules, m.recordings)
       break
     case 'config':
       server?.setConfig(m.config)
       break
     case 'rules':
       server?.setRules(m.rules)
+      break
+    case 'recordings':
+      server?.setRecordings(m.recordings)
       break
     case 'fault':
       server?.injectFault(m.mode, m.count)

@@ -11,7 +11,8 @@ export const en = {
   'nav.models': 'Models',
   'nav.chaos': 'Chaos',
   'nav.settings': 'Settings',
-  'app.copyUrl': 'Copy the base URL',
+  'app.copyUrl': 'Copy the base URL for Ollama clients (ollama libraries, OLLAMA_HOST)',
+  'app.copyOpenai': 'Copy the base URL for OpenAI-compatible clients',
   'app.urlCopied': 'URL copied',
   'app.uptime': 'up {time}',
   'app.restart': 'Restart',
@@ -413,6 +414,37 @@ export const en = {
   'models.unreachable': 'Ollama is not reachable: {error}',
   'models.mock': 'Mock models',
   'models.mockMixed': 'Used when a rule or keyword answers in mixed mode.',
+
+  // Recordings
+  'source.recording': 'recording',
+  'app.rec': 'REC {n}',
+  'app.recTitle': 'Recording the replies of Ollama to {path}',
+  'set.recordings': 'Recordings',
+  'set.record': 'Record: save the replies of the real Ollama (proxy and mixed modes)',
+  'set.replay': 'Play back: answer recorded prompts with the recorded reply (mock and mixed modes)',
+  'set.recordingsHelp':
+    'Matching ignores case, spaces, punctuation and symbols. The first reply to a prompt is kept.',
+  'set.recordingsFile': 'Recordings file',
+  'set.recordingsFileHelp': 'Relative to the .env folder. Now: {path} ({n} recordings)',
+  'set.recordNoProxy': 'Nothing is recorded in mock mode: switch to proxy or mixed.',
+  'rules.tab.recordings': 'Recordings',
+  'rules.replayNote':
+    'Playback is on: a recorded prompt is answered by its recording before any rule.',
+  'rec.intro':
+    'Replies of the real Ollama, saved in proxy and mixed modes when recording is on. They are played back in mock and mixed modes when playback is on.',
+  'rec.empty':
+    'No recordings yet. Turn on recording in Settings and send prompts through proxy or mixed mode.',
+  'rec.select': 'Select a recording.',
+  'rec.deleteAll': 'Delete all',
+  'rec.confirmAll': 'Delete all {n} recordings from {path}?',
+  'rec.deleted': 'Recording deleted',
+  'rec.deletedAll': 'All recordings deleted',
+  'rec.filter': 'Filter by prompt, model or reply…',
+  'rec.conversation': 'Matched against (system prompt and every message)',
+  'rec.meta': '{chunks} chunks · TTFT {ttft} · {tps} tok/s',
+  'rec.recordedAt': 'Recorded {at} from {source}',
+  'rec.toolCalls': 'Tool calls',
+  'rec.playbackOff': 'Playback is off: these are not used until you turn it on in Settings.',
 } as const
 
 export type Key = keyof typeof en

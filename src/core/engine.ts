@@ -39,6 +39,8 @@ export interface Plan {
   ttftMs?: number
   tps?: number
   fault?: FaultMode
+  /** A recorded reply: stream these pieces as they are instead of re-tokenizing the text. */
+  chunks?: { t: string; think: boolean }[]
 }
 
 interface Ctx {

@@ -32,6 +32,9 @@ export function defaultConfig(): MockConfig {
     rulesPath: 'rules.json',
     mode: 'mock',
     upstream: 'http://127.0.0.1:11434',
+    record: false,
+    replay: false,
+    recordingsPath: 'recordings.json',
   }
 }
 
@@ -112,6 +115,18 @@ export const ENV_KEYS: { [K in keyof MockConfig]: { key: string; doc: string } }
     doc: 'mock = made-up replies | proxy = forward to a real Ollama | mixed = rules first, then Ollama',
   },
   upstream: { key: 'MOCKOLLA_UPSTREAM', doc: 'The real Ollama for proxy and mixed modes.' },
+  record: {
+    key: 'MOCKOLLA_RECORD',
+    doc: "true = save the real Ollama's replies (proxy and mixed modes) to the recordings file.",
+  },
+  replay: {
+    key: 'MOCKOLLA_REPLAY',
+    doc: 'true = answer recorded prompts with the recorded reply (mock and mixed modes).',
+  },
+  recordingsPath: {
+    key: 'MOCKOLLA_RECORDINGS',
+    doc: 'Recorded replies, relative to this .env.',
+  },
 }
 
 // --- .env parsing -----------------------------------------------------------
@@ -215,6 +230,12 @@ export function applyEnv(base: MockConfig, env: Record<string, string | undefine
     c.mode = serverMode as ServerMode
   const upstream = get('upstream')
   if (upstream) c.upstream = normalizeUpstream(upstream) || c.upstream
+  const record = get('record')
+  if (record !== undefined) c.record = bool(record)
+  const replay = get('replay')
+  if (replay !== undefined) c.replay = bool(replay)
+  const recordings = get('recordingsPath')
+  if (recordings) c.recordingsPath = recordings
   return c
 }
 

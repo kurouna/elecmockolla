@@ -2,7 +2,14 @@ import { EventEmitter } from 'node:events'
 import { fileURLToPath } from 'node:url'
 import { type UtilityProcess, utilityProcess } from 'electron'
 import type { HostStatus, ServerStatus } from '../shared/api.ts'
-import type { FaultMode, MockConfig, RequestRecord, RulesFile, Snapshot } from '../shared/types.ts'
+import type {
+  FaultMode,
+  MockConfig,
+  Recording,
+  RequestRecord,
+  RulesFile,
+  Snapshot,
+} from '../shared/types.ts'
 import type { WorkerIn, WorkerOut } from './server.worker.ts'
 
 const WORKER = fileURLToPath(new URL('./server.worker.js', import.meta.url))
@@ -11,7 +18,7 @@ const HISTORY = 500
 /**
  * Owns the server's utility process: start, stop, live updates, and the
  * latest snapshot plus request history for pages that open later.
- * Emits 'status' (HostStatus) and 'snapshot' (Snapshot).
+ * Emits 'status' (HostStatus), 'snapshot' (Snapshot) and 'recorded' (Recording).
  */
 export class ServerHost extends EventEmitter {
   private child: UtilityProcess | null = null
@@ -42,7 +49,7 @@ export class ServerHost extends EventEmitter {
     return this.url
   }
 
-  start(config: MockConfig, rules: RulesFile): Promise<HostStatus> {
+  start(config: MockConfig, rules: RulesFile, recordings: Recording[]): Promise<HostStatus> {
     if (this.child) return Promise.resolve(this.getStatus())
     this.setStatus('starting')
     const child = utilityProcess.fork(WORKER, [], {
@@ -79,6 +86,9 @@ export class ServerHost extends EventEmitter {
           case 'snapshot':
             this.onSnapshot(m.snapshot)
             break
+          case 'recorded':
+            this.emit('recorded', m.recording)
+            break
           case 'stopped':
             break
         }
@@ -94,7 +104,7 @@ export class ServerHost extends EventEmitter {
         }
         settle()
       })
-      this.post({ type: 'start', config, rules })
+      this.post({ type: 'start', config, rules, recordings })
     })
   }
 
@@ -123,6 +133,10 @@ export class ServerHost extends EventEmitter {
 
   setConfig(config: MockConfig): void {
     this.post({ type: 'config', config })
+  }
+
+  setRecordings(recordings: Recording[]): void {
+    this.post({ type: 'recordings', recordings })
   }
 
   setRules(rules: RulesFile): void {

@@ -19,3 +19,4 @@ Thumbs.db
 .env.*
 !.env.example
 rules.json
+recordings.json

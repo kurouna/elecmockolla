@@ -52,6 +52,12 @@ export interface MockConfig {
   mode: ServerMode
   /** Base URL of the real Ollama used by the proxy and mixed modes. */
   upstream: string
+  /** Save every reply the real Ollama gives (proxy and mixed modes) to the recordings file. */
+  record: boolean
+  /** Answer recorded prompts with the recorded reply (mock and mixed modes). */
+  replay: boolean
+  /** Path of the recordings file. Relative paths resolve against the .env directory. */
+  recordingsPath: string
 }
 
 export type MatchKind = 'regex' | 'contains' | 'always'
@@ -129,10 +135,39 @@ export type RequestState =
   | 'aborted'
 
 export interface MatchInfo {
-  /** 'upstream': answered by the real Ollama (proxy and mixed modes). */
-  source: 'rule' | 'keyword' | 'fallback' | 'upstream'
+  /** 'upstream': answered by the real Ollama. 'recording': a recorded reply played back. */
+  source: 'rule' | 'keyword' | 'fallback' | 'upstream' | 'recording'
   id?: string
   name: string
+}
+
+/**
+ * One reply of the real Ollama, kept so the mock can play it back. The input is
+ * kept as it was; matching ignores case, spaces, punctuation and symbols.
+ */
+export interface Recording {
+  id: string
+  model: string
+  api: Api
+  /** The last user message (or generate prompt), for display. */
+  prompt: string
+  /** System prompt and every message, joined: what is matched. */
+  conversation: string
+  /** The reply as it streamed: content chunks, thinking chunks, tool calls. */
+  chunks: string[]
+  thinking: string[]
+  toolCalls: { name: string; arguments: unknown }[]
+  /** Measured time to first token and generation speed, for playback. */
+  ttftMs: number
+  tps: number
+  recordedAt: string
+  /** The Ollama it came from. */
+  source: string
+}
+
+export interface RecordingsFile {
+  version: 1
+  recordings: Recording[]
 }
 
 /** What a real Ollama said it spent on a reply (its *_duration and *_count fields), in ms. */

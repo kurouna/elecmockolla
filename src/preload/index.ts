@@ -26,6 +26,7 @@ const api: MockollaApi = {
   applyPreset: invoke(CH.applyPreset),
   saveRules: invoke(CH.saveRules),
   defaultRules: invoke(CH.defaultRules),
+  deleteRecordings: invoke(CH.deleteRecordings),
   testRules: invoke(CH.testRules),
   injectFault: invoke(CH.injectFault),
   clearFaults: invoke(CH.clearFaults),
@@ -41,6 +42,7 @@ const api: MockollaApi = {
   onStatus: listen(CH.status),
   onPlayground: listen(CH.playgroundEvent),
   onLoadGen: listen(CH.loadGenStatus),
+  onRecordings: listen(CH.recordings),
 } as MockollaApi
 
 contextBridge.exposeInMainWorld('mockolla', api)

@@ -4,6 +4,7 @@ import type {
   Api,
   FaultMode,
   MockConfig,
+  Recording,
   RequestRecord,
   RulesFile,
   Snapshot,
@@ -23,6 +24,7 @@ import {
 import { Monitor } from './monitor.ts'
 import { forward, HOP_HEADER, UpstreamError, UpstreamWatch } from './proxy.ts'
 import { jittered } from './random.ts'
+import { RecordingStore, recordingId } from './recordings.ts'
 import { FAULT_MODES, normalizeRules, RulesError } from './rules.ts'
 import { AbortedError, QueueFullError, Scheduler } from './scheduler.ts'
 import { countTokens, tokenize } from './text.ts'
@@ -212,6 +214,34 @@ function parseRequest(api: Api, body: Obj): Parsed {
 export interface MockServerOptions {
   config: MockConfig
   rules: RulesFile
+  recordings?: Recording[]
+}
+
+/** Tool calls as Ollama or OpenAI send them (OpenAI streams them in pieces), as name + arguments. */
+function toolCallsOf(raw: unknown[]): { name: string; arguments: unknown }[] {
+  const byIndex = new Map<number, { name: string; args: string; obj: unknown }>()
+  raw.forEach((c, i) => {
+    if (!isObj(c)) return
+    const f = isObj(c.function) ? c.function : c
+    const index = typeof c.index === 'number' ? c.index : i
+    const cur = byIndex.get(index) ?? { name: '', args: '', obj: undefined }
+    cur.name += str(f.name)
+    if (typeof f.arguments === 'string') cur.args += f.arguments
+    else if (f.arguments !== undefined) cur.obj = f.arguments
+    byIndex.set(index, cur)
+  })
+  return [...byIndex.values()]
+    .filter((c) => c.name)
+    .map((c) => {
+      let args: unknown = c.obj ?? {}
+      if (c.args)
+        try {
+          args = JSON.parse(c.args)
+        } catch {
+          args = c.args
+        }
+      return { name: c.name, arguments: args }
+    })
 }
 
 export class MockServer {
@@ -221,6 +251,9 @@ export class MockServer {
   readonly loaded = new LoadedModels()
   /** The real Ollama, polled in proxy and mixed modes. */
   readonly upstream = new UpstreamWatch()
+  readonly recordings: RecordingStore
+  /** Called with each new recording (the host saves it to recordings.json). */
+  onRecorded: ((r: Recording) => void) | null = null
   private scheduler: Scheduler
   private models: string[]
   private pendingFaults: FaultMode[] = []
@@ -236,6 +269,7 @@ export class MockServer {
     this.engine = new Engine(opts.rules, { seed: opts.config.seed })
     this.scheduler = new Scheduler(opts.config.numParallel, opts.config.maxQueue)
     this.models = opts.config.models.map(normalizeModel)
+    this.recordings = new RecordingStore(opts.recordings ?? [])
     this.monitor.sample = () => ({
       busy: this.scheduler.busyCount,
       queued: this.scheduler.queue().length,
@@ -304,6 +338,31 @@ export class MockServer {
 
   setRules(rules: RulesFile): void {
     this.engine.setRules(rules)
+  }
+
+  setRecordings(recordings: Recording[]): void {
+    this.recordings.set(recordings)
+  }
+
+  /** The recorded reply for this prompt, when playback is on (mock and mixed modes). */
+  private replayPlan(p: Prompt): Planned | undefined {
+    if (!this.config.replay || this.config.mode === 'proxy') return undefined
+    const r = this.recordings.find(p.model, p.all)
+    if (!r) return undefined
+    const thinking = p.think ? r.thinking : []
+    const plan: Planned = {
+      match: { source: 'recording', id: r.id, name: r.prompt.slice(0, 60) || r.id },
+      text: r.chunks.join(''),
+      thinking: thinking.join(''),
+      toolCalls: r.toolCalls,
+      chunks: [
+        ...thinking.map((t) => ({ t, think: true })),
+        ...r.chunks.map((t) => ({ t, think: false })),
+      ],
+    }
+    if (r.ttftMs > 0) plan.ttftMs = r.ttftMs
+    if (r.tps > 0) plan.tps = r.tps
+    return plan
   }
 
   injectFault(mode: FaultMode, count = 1): void {
@@ -697,7 +756,8 @@ export class MockServer {
     try {
       rec.slot = slot
       rec.t.started = Date.now()
-      await this.run(api, rec, res, parsed, keepAliveSec, ac.signal, plan)
+      const planned = plan ?? this.replayPlan(parsed.prompt)
+      await this.run(api, rec, res, parsed, keepAliveSec, ac.signal, planned)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       if (e instanceof AbortedError || ac.signal.aborted)
@@ -761,10 +821,12 @@ export class MockServer {
     const fault = this.pickFault(plan)
     rec.fault = fault
 
-    const thinkTokens = plan.thinking ? tokenize(plan.thinking) : []
-    const textTokens = tokenize(plan.text)
+    const sequence = plan.chunks ?? [
+      ...(plan.thinking ? tokenize(plan.thinking) : []).map((t) => ({ t, think: true })),
+      ...tokenize(plan.text).map((t) => ({ t, think: false })),
+    ]
     const limit = parsed.numPredict
-    const total = thinkTokens.length + textTokens.length
+    const total = sequence.length
     const truncated = total > limit
     const budget = truncated ? limit : total
     rec.plannedTokens = budget
@@ -802,10 +864,7 @@ export class MockServer {
     let content = ''
     let thinking = ''
 
-    const all = [
-      ...thinkTokens.map((t) => ({ t, think: true })),
-      ...textTokens.map((t) => ({ t, think: false })),
-    ].slice(0, budget)
+    const all = sequence.slice(0, budget)
 
     for (const tok of all) {
       if (interval > 0) {
@@ -906,6 +965,8 @@ export class MockServer {
       const generative = api !== 'embed' && api !== 'openai-embed'
       const parsed = generative ? parseRequest(api, obj) : null
       if (this.config.mode === 'mixed' && parsed && !parsed.empty) {
+        const replay = this.replayPlan(parsed.prompt)
+        if (replay) return await this.generate(api, req, res, body, replay)
         const plan = this.engine.plan(parsed.prompt)
         if (plan.match.source !== 'fallback') return await this.generate(api, req, res, body, plan)
       }
@@ -993,6 +1054,8 @@ export class MockServer {
       }
 
       const toolCalls: unknown[] = []
+      const chunks: string[] = []
+      const thinkingChunks: string[] = []
       const result = await forward({
         upstream: this.config.upstream,
         method: req.method ?? 'POST',
@@ -1010,10 +1073,12 @@ export class MockServer {
           toolCalls.push(...piece.toolCalls)
           if (piece.thinking) {
             rec.state = 'thinking'
+            thinkingChunks.push(piece.thinking)
             this.monitor.addTokens(rec, piece.thinking, true)
           }
           if (piece.content) {
             rec.state = 'streaming'
+            chunks.push(piece.content)
             this.monitor.addTokens(rec, piece.content, false)
           }
         },
@@ -1036,6 +1101,10 @@ export class MockServer {
       }
       if (toolCalls.length) rec.responseText += `\n[tool_calls] ${JSON.stringify(toolCalls)}`
 
+      const ok = !result.aborted && !result.faulted && result.status < 400
+      if (ok && this.config.record && parsed)
+        this.record(api, rec, parsed.prompt, parsed.stream, chunks, thinkingChunks, toolCalls)
+
       if (result.aborted) this.monitor.finish(rec, 'aborted', 499, 'client disconnected')
       else if (result.faulted)
         this.monitor.finish(rec, 'error', result.status, `mock: injected ${fault}`)
@@ -1054,6 +1123,48 @@ export class MockServer {
       this.scheduler.release(slot)
       void this.upstream.poll()
     }
+  }
+
+  /** Keeps a reply of the real Ollama for playback. The first reply to an input is kept. */
+  private record(
+    api: Api,
+    rec: RequestRecord,
+    prompt: Prompt,
+    streamed: boolean,
+    chunks: string[],
+    thinking: string[],
+    rawToolCalls: unknown[],
+  ): void {
+    const toolCalls = toolCallsOf(rawToolCalls)
+    if (!chunks.length && !toolCalls.length) return
+    if (this.recordings.find(prompt.model, prompt.all)) return
+    // A reply that came in one piece is split like mock replies, so it still streams on playback.
+    const split = (pieces: string[]) => (streamed ? pieces : tokenize(pieces.join('')))
+    const now = Date.now()
+    const stats = rec.reported
+    const firstMs = rec.t.firstToken ? rec.t.firstToken - rec.t.started : 0
+    const ttftMs = stats?.promptMs || Math.max(0, firstMs - (stats?.loadMs ?? 0))
+    const span = rec.t.firstToken ? (now - rec.t.firstToken) / 1000 : 0
+    const tps = stats?.evalMs
+      ? (stats.evalTokens * 1000) / stats.evalMs
+      : span > 0 && chunks.length > 1
+        ? chunks.length / span
+        : 0
+    const recording: Recording = {
+      id: recordingId(prompt.model, prompt.all),
+      model: normalizeModel(prompt.model),
+      api,
+      prompt: prompt.last,
+      conversation: prompt.all,
+      chunks: split(chunks),
+      thinking: split(thinking),
+      toolCalls,
+      ttftMs: Math.round(ttftMs),
+      tps: Math.round(tps * 10) / 10,
+      recordedAt: new Date(now).toISOString(),
+      source: this.config.upstream,
+    }
+    if (this.recordings.add(recording)) this.onRecorded?.(recording)
   }
 
   // --- embeddings ------------------------------------------------------------------
@@ -1202,6 +1313,8 @@ export class MockServer {
           return this.events(res)
         case 'GET /_mock/rules':
           return sendJson(res, 200, this.engine.getRules())
+        case 'GET /_mock/recordings':
+          return sendJson(res, 200, { recordings: this.recordings.all() })
         case 'PUT /_mock/rules':
           this.setRules(normalizeRules(await readBody(req)))
           return sendJson(res, 200, this.engine.getRules())

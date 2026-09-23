@@ -3,7 +3,16 @@ import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, clipboard, type IpcMainInvokeEvent, ipcMain, shell } from 'electron'
 import { applyPreset, PRESETS, patchConfig, presetById } from '../core/config.ts'
 import { Engine } from '../core/engine.ts'
-import { initFiles, loadConfig, loadRules, saveEnv, saveRules } from '../core/files.ts'
+import {
+  initFiles,
+  loadConfig,
+  loadRecordings,
+  loadRules,
+  saveEnv,
+  saveRecordings,
+  saveRules,
+} from '../core/files.ts'
+import { RecordingStore } from '../core/recordings.ts'
 import { defaultRules, FAULT_MODES, normalizeRules } from '../core/rules.ts'
 import type {
   AppState,
@@ -13,7 +22,7 @@ import type {
   SaveResult,
 } from '../shared/api.ts'
 import { CH } from '../shared/channels.ts'
-import type { FaultMode, MockConfig, RulesFile } from '../shared/types.ts'
+import type { FaultMode, MockConfig, Recording, RulesFile } from '../shared/types.ts'
 import { capturePages } from './capture.ts'
 import { LoadGenerator, Playground } from './client.ts'
 import { ServerHost } from './host.ts'
@@ -41,12 +50,47 @@ let rulesPath: string
 let rules: RulesFile
 /** A rules file that failed to parse at startup: shown, never overwritten silently. */
 let rulesError = ''
+let recordingsPath: string
+let recordings: Recording[] = []
+/** Same index as the server's, for the playground's "will match". */
+let recordingStore = new RecordingStore()
+/** A recordings file that failed to parse: never overwritten, so nothing in it is lost. */
+let recordingsError = ''
+
+function readRecordings(): void {
+  try {
+    recordings = loadRecordings(recordingsPath)
+    recordingsError = ''
+  } catch (e) {
+    recordings = []
+    recordingsError = `${path.basename(recordingsPath)}: ${e instanceof Error ? e.message : e} (recording is paused until it is fixed)`
+  }
+  recordingStore = new RecordingStore(recordings)
+}
+
+let saveTimer: NodeJS.Timeout | undefined
+/** Saves recordings.json a moment after the last change, so a burst of replies is one write. */
+function saveRecordingsSoon(): void {
+  if (recordingsError) return
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    try {
+      saveRecordings(recordingsPath, recordings)
+    } catch (e) {
+      console.error(`could not save ${recordingsPath}:`, e)
+    }
+  }, 300)
+}
+
+const notice = () => [rulesError, recordingsError].filter(Boolean).join(' / ')
 
 function loadFromDisk(): void {
   const loaded = loadConfig(ENV_PATH, process.env)
   initFiles(loaded.envPath, loaded.rulesPath)
   config = loaded.config
   rulesPath = loaded.rulesPath
+  recordingsPath = loaded.recordingsPath
+  readRecordings()
   try {
     rules = loadRules(rulesPath)
     rulesError = ''
@@ -94,13 +138,14 @@ function toLoadGen(v: unknown): LoadGenOptions {
 // --- actions -----------------------------------------------------------------
 
 async function startServer() {
-  return host.start(config, rules)
+  return host.start(config, rules, recordings)
 }
 
 async function applyConfig(next: MockConfig): Promise<SaveResult<MockConfig>> {
   try {
     const needsRestart = next.host !== config.host || next.port !== config.port
     const rulesMoved = next.rulesPath !== config.rulesPath
+    const recordingsMoved = next.recordingsPath !== config.recordingsPath
     saveEnv(ENV_PATH, next)
     config = next
     if (rulesMoved) {
@@ -108,6 +153,12 @@ async function applyConfig(next: MockConfig): Promise<SaveResult<MockConfig>> {
       initFiles(ENV_PATH, rulesPath)
       rules = loadRules(rulesPath)
       host.setRules(rules)
+    }
+    if (recordingsMoved) {
+      recordingsPath = path.resolve(HOME, next.recordingsPath)
+      readRecordings()
+      host.setRecordings(recordings)
+      send(CH.recordings, recordings)
     }
     if (host.running && needsRestart) {
       await host.stop()
@@ -127,12 +178,14 @@ function registerIpc(): void {
     CH.getState,
     (): AppState => ({
       ...host.getStatus(),
-      notice: rulesError,
+      notice: notice(),
       version: __APP_VERSION__,
       envPath: ENV_PATH,
       rulesPath,
+      recordingsPath,
       config,
       rules,
+      recordings,
       presets: [...PRESETS],
       history: host.history,
       snapshot: host.snapshot,
@@ -166,6 +219,17 @@ function registerIpc(): void {
     }
   })
   handle(CH.defaultRules, () => defaultRules())
+  handle(CH.deleteRecordings, (_e, ids) => {
+    if (ids === 'all') recordings = []
+    else if (Array.isArray(ids)) {
+      const drop = new Set(ids.filter((x): x is string => typeof x === 'string'))
+      recordings = recordings.filter((r) => !drop.has(r.id))
+    } else return recordings
+    recordingStore = new RecordingStore(recordings)
+    host.setRecordings(recordings)
+    saveRecordingsSoon()
+    return recordings
+  })
   handle(CH.testRules, (_e, input, draft) => {
     const i = isObj(input) ? input : {}
     let r = rules
@@ -181,6 +245,22 @@ function registerIpc(): void {
           error: e instanceof Error ? e.message : String(e),
         }
       }
+    }
+    // The playground (no draft) sees what the server would do: a recording answers first.
+    if (draft === undefined && config.replay && config.mode !== 'proxy') {
+      const prompt = text(i.prompt)
+      const system = text(i.system)
+      const hit = recordingStore.find(
+        text(i.model, 200) || 'llama3.2:3b',
+        [system, prompt].filter(Boolean).join('\n'),
+      )
+      if (hit)
+        return {
+          match: { source: 'recording', id: hit.id, name: hit.prompt.slice(0, 60) || hit.id },
+          text: hit.chunks.join(''),
+          thinking: i.think === true ? hit.thinking.join('') : '',
+          toolCalls: hit.toolCalls,
+        }
     }
     return new Engine(r, { seed: config.seed }).test({
       prompt: text(i.prompt),
@@ -272,6 +352,12 @@ app.whenReady().then(async () => {
   loadFromDisk()
   host.on('status', (s) => send(CH.status, s))
   host.on('snapshot', (s) => send(CH.snapshot, s))
+  host.on('recorded', (r: Recording) => {
+    if (recordingsError || !recordingStore.add(r)) return
+    recordings = [...recordings, r]
+    saveRecordingsSoon()
+    send(CH.recordings, recordings)
+  })
   registerIpc()
   createWindow()
   // Start right away: `npm start` should give a working mock with no clicks.

@@ -6,6 +6,7 @@ import type {
   FaultMode,
   MockConfig,
   Preset,
+  Recording,
   RequestRecord,
   RulesFile,
   Snapshot,
@@ -29,8 +30,10 @@ export interface AppState extends HostStatus {
   notice: string
   envPath: string
   rulesPath: string
+  recordingsPath: string
   config: MockConfig
   rules: RulesFile
+  recordings: Recording[]
   presets: Preset[]
   /** Finished requests, oldest first. */
   history: RequestRecord[]
@@ -83,6 +86,8 @@ export interface MockollaApi {
   applyPreset(id: string): Promise<SaveResult<MockConfig>>
   saveRules(rules: RulesFile): Promise<SaveResult<RulesFile>>
   defaultRules(): Promise<RulesFile>
+  /** Deletes recordings by id ('all' clears the file); returns what is left. */
+  deleteRecordings(ids: string[] | 'all'): Promise<Recording[]>
   /** Runs the rule engine on `rules` (a draft) or on the saved rules. */
   testRules(input: TestInput & { think?: boolean }, rules?: RulesFile): Promise<TestResult>
   injectFault(mode: FaultMode, count: number): Promise<void>
@@ -100,4 +105,5 @@ export interface MockollaApi {
   onStatus(cb: (s: HostStatus) => void): () => void
   onPlayground(cb: (e: PlaygroundEvent) => void): () => void
   onLoadGen(cb: (s: LoadGenStatus) => void): () => void
+  onRecordings(cb: (r: Recording[]) => void): () => void
 }

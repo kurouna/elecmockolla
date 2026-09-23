@@ -10,7 +10,8 @@ export const ja: Record<Key, string> = {
   'nav.models': 'モデル',
   'nav.chaos': '障害注入',
   'nav.settings': '設定',
-  'app.copyUrl': 'ベース URL をコピー',
+  'app.copyUrl': 'Ollama クライアント用（ollama ライブラリ、OLLAMA_HOST）のベース URL をコピー',
+  'app.copyOpenai': 'OpenAI 互換クライアント用のベース URL をコピー',
   'app.urlCopied': 'URL をコピーしました',
   'app.uptime': '稼働 {time}',
   'app.restart': '再起動',
@@ -416,4 +417,35 @@ export const ja: Record<Key, string> = {
   'models.unreachable': 'Ollama に接続できません: {error}',
   'models.mock': 'モックのモデル',
   'models.mockMixed': '混在モードでルールやキーワードが返答するときに使います。',
+
+  // Recordings
+  'source.recording': '録画',
+  'app.rec': '録画 {n}',
+  'app.recTitle': 'Ollama の返答を {path} に録画中',
+  'set.recordings': '録画',
+  'set.record': '録画する: 本物の Ollama の返答を保存（プロキシ・混在モード）',
+  'set.replay': '録画を使う: 録画済みのプロンプトには録画の返答を返す（モック・混在モード）',
+  'set.recordingsHelp':
+    '照合では大文字小文字・空白・句読点・記号を無視します。同じプロンプトは最初の返答を残します。',
+  'set.recordingsFile': '録画ファイル',
+  'set.recordingsFileHelp': '.env のフォルダーからの相対パス。現在: {path}（{n} 件）',
+  'set.recordNoProxy': 'モックモードでは録画されません。プロキシか混在モードにしてください。',
+  'rules.tab.recordings': '録画',
+  'rules.replayNote':
+    '録画を使う設定がオンです。録画済みのプロンプトは、ルールより先に録画で返答します。',
+  'rec.intro':
+    '録画をオンにしたとき、プロキシ・混在モードで保存された本物の Ollama の返答です。録画を使う設定がオンなら、モック・混在モードで再生されます。',
+  'rec.empty':
+    'まだ録画はありません。設定で録画をオンにして、プロキシか混在モードでプロンプトを送ってください。',
+  'rec.select': '録画を選択してください。',
+  'rec.deleteAll': 'すべて削除',
+  'rec.confirmAll': '{path} の録画 {n} 件をすべて削除しますか？',
+  'rec.deleted': '録画を削除しました',
+  'rec.deletedAll': '録画をすべて削除しました',
+  'rec.filter': 'プロンプト・モデル・返答で絞り込み…',
+  'rec.conversation': '照合する内容（システムプロンプトと全メッセージ）',
+  'rec.meta': '{chunks} チャンク · TTFT {ttft} · {tps} tok/s',
+  'rec.recordedAt': '{at} に {source} から録画',
+  'rec.toolCalls': 'ツール呼び出し',
+  'rec.playbackOff': '録画を使う設定がオフです。設定でオンにするまで再生されません。',
 }

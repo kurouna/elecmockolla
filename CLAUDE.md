@@ -26,7 +26,8 @@ src/core/      the server. Pure Node, no dependencies, no Electron. Run by the C
                rules.ts (defaults, validation), engine.ts (matching, templates), server.ts
                (HTTP, pacing, faults, control API), writers.ts (wire formats), scheduler.ts
                (slots + queue), monitor.ts (records, series), proxy.ts (proxy/mixed modes:
-               forwarding, reply parsing, upstream polling), models.ts, text.ts, random.ts
+               forwarding, reply parsing, upstream polling), recordings.ts (recorded replies,
+               matching keys), models.ts, text.ts, random.ts
 src/main/      Electron main: index.ts (window, IPC), host.ts (utility process),
                server.worker.ts (the utility process entry), client.ts (playground, load
                generator), capture.ts (screenshot mode)

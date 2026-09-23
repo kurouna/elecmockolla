@@ -8,6 +8,7 @@ export const CH = {
   applyPreset: 'mockolla:apply-preset',
   saveRules: 'mockolla:save-rules',
   defaultRules: 'mockolla:default-rules',
+  deleteRecordings: 'mockolla:delete-recordings',
   testRules: 'mockolla:test-rules',
   injectFault: 'mockolla:inject-fault',
   clearFaults: 'mockolla:clear-faults',
@@ -24,4 +25,5 @@ export const CH = {
   status: 'mockolla:status',
   playgroundEvent: 'mockolla:playground-event',
   loadGenStatus: 'mockolla:load-gen-status',
+  recordings: 'mockolla:recordings',
 } as const

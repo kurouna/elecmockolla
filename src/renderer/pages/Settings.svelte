@@ -175,6 +175,22 @@ function revert() {
         </div>
       </section>
       <section class="card">
+        <div class="card-head">
+          <h3>{t('set.recordings')}</h3>
+          {#if store.config?.record && store.config.mode !== 'mock'}<span class="chip red">● REC</span>{/if}
+        </div>
+        <div class="card-body form">
+          <label class="check"><input type="checkbox" bind:checked={form.record} />{t('set.record')}</label>
+          {#if form.record && form.mode === 'mock'}<small class="warnline">{t('set.recordNoProxy')}</small>{/if}
+          <label class="check"><input type="checkbox" bind:checked={form.replay} />{t('set.replay')}</label>
+          <small class="muted">{t('set.recordingsHelp')}</small>
+          <label class="field">
+            <span>{t('set.recordingsFile')}</span><input class="input mono" bind:value={form.recordingsPath} />
+            <small>{t('set.recordingsFileHelp', { path: store.recordingsPath, n: store.recordings.length })}</small>
+          </label>
+        </div>
+      </section>
+      <section class="card">
         <div class="card-head"><h3>{t('set.envPreview')}</h3><span class="grow"></span>
           <button class="btn sm ghost" onclick={() => store.copy(preview, t('set.envCopied'))}><Icon name="copy" size={12} /></button>
         </div>
@@ -277,6 +293,10 @@ function revert() {
     width: 100%;
     accent-color: var(--accent);
     height: 30px;
+  }
+  .warnline {
+    color: var(--amber);
+    font-size: 11.5px;
   }
   .env {
     max-height: 300px;

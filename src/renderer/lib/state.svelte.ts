@@ -1,5 +1,12 @@
 import type { HostStatus, LoadGenStatus } from '../../shared/api.ts'
-import type { MockConfig, Preset, RequestRecord, RulesFile, Snapshot } from '../../shared/types.ts'
+import type {
+  MockConfig,
+  Preset,
+  Recording,
+  RequestRecord,
+  RulesFile,
+  Snapshot,
+} from '../../shared/types.ts'
 import { t, tOr } from './i18n.svelte.ts'
 
 export type Page =
@@ -32,6 +39,8 @@ class Store {
   version = $state('')
   envPath = $state('')
   rulesPath = $state('')
+  recordingsPath = $state('')
+  recordings = $state.raw<Recording[]>([])
   config = $state.raw<MockConfig | null>(null)
   rules = $state.raw<RulesFile | null>(null)
   presets = $state.raw<Preset[]>([])
@@ -53,6 +62,8 @@ class Store {
     this.version = s.version
     this.envPath = s.envPath
     this.rulesPath = s.rulesPath
+    this.recordingsPath = s.recordingsPath
+    this.recordings = s.recordings
     this.config = s.config
     this.rules = s.rules
     this.presets = s.presets
@@ -65,6 +76,9 @@ class Store {
     })
     api().onLoadGen((st) => {
       this.loadGen = st
+    })
+    api().onRecordings((r) => {
+      this.recordings = r
     })
     this.applyTheme()
     this.ready = true
@@ -145,6 +159,11 @@ class Store {
     this.notice = ''
     this.flash(t('common.rulesSaved'))
     return true
+  }
+
+  async deleteRecordings(ids: string[] | 'all'): Promise<void> {
+    this.recordings = await api().deleteRecordings(ids)
+    this.flash(ids === 'all' ? t('rec.deletedAll') : t('rec.deleted'))
   }
 
   async start(): Promise<void> {
