@@ -388,6 +388,7 @@ export const en = {
   'mode.mixed.desc':
     'Prompts a rule or keyword matches get a made-up reply; everything else goes to the real Ollama.',
   'app.upstreamOk': 'Ollama {version} is answering at {url}',
+  'app.mockTitle': 'Mock mode: every reply is made up by the rules. Change it in Settings.',
   'app.upstreamDown': 'Ollama at {url} is not reachable: {error}',
   'set.mode': 'Mode',
   'set.upstream': 'OpenAI-compatible URL',
@@ -396,6 +397,8 @@ export const en = {
   'set.upstreamOk': 'Connected: Ollama {version}, {models} models, {loaded} loaded',
   'set.upstreamOkOpenai':
     'Connected through /v1 only: {models} models (no Ollama API here, so no loaded models or VRAM)',
+  'set.upstreamOkNoPs':
+    'Connected: Ollama {version}, {models} models (loaded models unknown: /api/ps did not answer)',
   'set.upstreamDown': 'Not reachable: {error}',
   'set.upstreamChecking': 'Checking…',
   'set.upstreamApply': 'Save to connect.',

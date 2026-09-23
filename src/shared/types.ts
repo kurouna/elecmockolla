@@ -240,7 +240,8 @@ export interface UpstreamInfo {
   api: 'ollama' | 'openai' | ''
   version: string
   models: string[]
-  loaded: { name: string; expiresAt: number; sizeVram: number }[]
+  /** What /api/ps says is in memory; null when it cannot be known (no /api/ps). */
+  loaded: { name: string; expiresAt: number; sizeVram: number }[] | null
   checkedAt: number
 }
 

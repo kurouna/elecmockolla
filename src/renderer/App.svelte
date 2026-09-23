@@ -30,6 +30,13 @@ const queued = $derived(snap?.queue.length ?? 0)
 const pending = $derived(snap?.pendingFaults.length ?? 0)
 const mode = $derived(store.config?.mode ?? 'mock')
 const up = $derived(snap?.upstream ?? null)
+/** The real Ollama was asked and did not answer (proxy and mixed modes). */
+const upDown = $derived(mode !== 'mock' && up !== null && up.checkedAt > 0 && !up.ok)
+
+// The OS window title (taskbar, Alt+Tab) names the mode too.
+$effect(() => {
+  document.title = `elecmockolla · ${t(`mode.${mode}`)}`
+})
 
 function onKey(e: KeyboardEvent) {
   if (!(e.ctrlKey || e.metaKey)) return
@@ -68,23 +75,26 @@ function onKey(e: KeyboardEvent) {
           <Icon name="copy" size={12} />
         </button>
         <span class="muted">{t('app.uptime', { time: fmtUptime((snap?.now ?? 0) - (snap?.startedAt ?? 0)) })}</span>
-        {#if mode !== 'mock' && store.config}
+        {#if store.config}
+          <!-- The mode the server runs in; the dot pulses while it runs, and turns red when Ollama is down. -->
           <button
-            class="mode"
-            class:bad={up !== null && up.checkedAt > 0 && !up.ok}
-            title={up && !up.ok && up.checkedAt
-              ? t('app.upstreamDown', { url: store.config.upstream, error: up.error })
-              : t('app.upstreamOk', { version: up?.version ?? '', url: store.config.upstream })}
+            class="mode {mode}"
+            class:bad={upDown}
+            title={mode === 'mock'
+              ? t('app.mockTitle')
+              : upDown
+                ? t('app.upstreamDown', { url: store.config.upstream, error: up?.error ?? '' })
+                : t('app.upstreamOk', { version: up?.version ?? '', url: store.config.upstream })}
             onclick={() => (store.page = 'settings')}
           >
-            <span class="dot" class:live={up?.ok} class:bad={up !== null && up.checkedAt > 0 && !up.ok}></span>
+            <span class="pulse"></span>
             {t(`mode.${mode}`)}
           </button>
-          {#if store.config.record}
-            <button class="rec" title={t('app.recTitle', { path: store.recordingsPath })} onclick={() => (store.page = 'rules')}>
-              <span class="recdot"></span>{t('app.rec', { n: store.recordings.length })}
-            </button>
-          {/if}
+        {/if}
+        {#if store.config?.record && mode !== 'mock'}
+          <button class="rec" title={t('app.recTitle', { path: store.recordingsPath })} onclick={() => (store.page = 'rules')}>
+            <span class="recdot"></span>{t('app.rec', { n: store.recordings.length })}
+          </button>
         {/if}
       {:else}
         <span class="st">{t(`server.${st}`)}</span>
@@ -236,17 +246,46 @@ function onKey(e: KeyboardEvent) {
     color: var(--muted);
   }
   .mode {
+    --tone: var(--violet);
     display: inline-flex;
     align-items: center;
     gap: 6px;
     height: 24px;
     padding: 0 9px;
     border-radius: 12px;
-    border: 1px solid color-mix(in srgb, var(--violet) 50%, var(--line-2));
-    background: color-mix(in srgb, var(--violet) 12%, transparent);
-    color: var(--violet);
+    border: 1px solid color-mix(in srgb, var(--tone) 50%, var(--line-2));
+    background: color-mix(in srgb, var(--tone) 12%, transparent);
+    color: var(--tone);
     font: 600 11px var(--mono);
     cursor: pointer;
+  }
+  .mode.mock {
+    --tone: var(--accent);
+  }
+  .mode.bad {
+    --tone: var(--red);
+  }
+  .pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--tone);
+    box-shadow: 0 0 6px var(--tone);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  .mode.bad .pulse {
+    animation: none;
+  }
+  @keyframes pulse {
+    50% {
+      opacity: 0.25;
+      box-shadow: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse {
+      animation: none;
+    }
   }
   .rec {
     display: inline-flex;
@@ -272,11 +311,6 @@ function onKey(e: KeyboardEvent) {
     50% {
       opacity: 0.25;
     }
-  }
-  .mode.bad {
-    border-color: var(--red);
-    background: var(--red-soft);
-    color: var(--red);
   }
   .st {
     text-transform: capitalize;

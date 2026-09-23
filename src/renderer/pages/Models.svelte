@@ -79,7 +79,8 @@ function remove(name: string) {
                     <span class="chip green"><span class="dot live"></span>{t('models.loaded')}</span>
                     <span class="muted small">{t('models.vram', { size: fmtBytes(l.sizeVram) })} · {Number.isFinite(l.expiresAt) ? t('models.unloadsIn', { t: fmtMs(l.expiresAt - now) }) : t('models.forever')}</span>
                   {:else}
-                    <span class="muted">{t('models.cold')}</span>
+                    <!-- Without /api/ps, a model not listed may still be loaded. -->
+                    <span class="muted">{up?.loaded === null ? '–' : t('models.cold')}</span>
                   {/if}
                 </td>
               </tr>

@@ -126,10 +126,10 @@ describe('proxy mode', () => {
     }
   })
 
-  it('connects to a server that has only the OpenAI-compatible /v1', async () => {
-    // Like LM Studio, llama.cpp or a proxy exposing only /v1: /api/... is 404.
-    const v1only = createServer((req, res) => {
-      if (req.url?.startsWith('/api/')) {
+  /** The stand-in Ollama behind a server that answers 404 for the paths `blocked` picks. */
+  async function watchThrough(blocked: (path: string) => boolean) {
+    const partial = createServer((req, res) => {
+      if (blocked(req.url ?? '')) {
         res.writeHead(404).end('404 page not found')
         return
       }
@@ -138,23 +138,42 @@ describe('proxy mode', () => {
         res.end(Buffer.from(await r.arrayBuffer()))
       })
     })
-    await new Promise<void>((r) => v1only.listen(0, '127.0.0.1', r))
-    const port = (v1only.address() as AddressInfo).port
-    const { server } = await startServer({
-      mode: 'proxy',
-      upstream: `http://127.0.0.1:${port}/v1`,
-    })
+    await new Promise<void>((r) => partial.listen(0, '127.0.0.1', r))
+    const port = (partial.address() as AddressInfo).port
+    const { server } = await startServer({ mode: 'proxy', upstream: `http://127.0.0.1:${port}/v1` })
+    await server.upstream.poll()
+    const close = async () => {
+      await server.stop()
+      partial.close()
+    }
+    return { server, info: server.snapshot(false).upstream, close }
+  }
+
+  it('connects to a server that has only the OpenAI-compatible /v1', async () => {
+    // Like LM Studio, llama.cpp or a proxy exposing only /v1.
+    const { server, info, close } = await watchThrough((p) => p.startsWith('/api/'))
     try {
-      await server.upstream.poll()
-      const info = server.snapshot(false).upstream
-      expect(info).toMatchObject({ ok: true, api: 'openai', version: '', loaded: [] })
+      expect(info).toMatchObject({ ok: true, api: 'openai', version: '', loaded: null })
       expect(info?.models).toContain('llama3.2:3b')
-      // With no /api/ps, a request is never shown as loading a model.
+      // Which models are loaded is unknown, so a request is never shown as loading one.
       expect(server.upstream.isCold('llama3.2:3b')).toBe(false)
     } finally {
-      await server.stop()
-      v1only.close()
+      await close()
     }
+  })
+
+  it('tells "no loaded models" from "cannot see them" when /api/ps fails', async () => {
+    const { server, info, close } = await watchThrough((p) => p === '/api/ps')
+    try {
+      expect(info).toMatchObject({ ok: true, api: 'ollama', version: '0.12.0', loaded: null })
+      expect(server.upstream.isCold('llama3.2:3b')).toBe(false)
+    } finally {
+      await close()
+    }
+    // With /api/ps answering, a model it does not list is cold.
+    await proxy.upstream.poll()
+    expect(proxy.snapshot(false).upstream?.loaded).toEqual(expect.any(Array))
+    expect(proxy.upstream.isCold('never-used:1b')).toBe(true)
   })
 
   it('injects faults into real replies', async () => {

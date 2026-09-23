@@ -391,6 +391,7 @@ export const ja: Record<Key, string> = {
   'mode.mixed.desc':
     'ルールかキーワードに一致したプロンプトはダミーで返し、それ以外は本物の Ollama に転送します。',
   'app.upstreamOk': 'Ollama {version} が {url} で応答中',
+  'app.mockTitle': 'モックモード: すべての返答をルールで作っています。設定で切り替えられます。',
   'app.upstreamDown': '{url} の Ollama に接続できません: {error}',
   'set.mode': '動作モード',
   'set.upstream': 'OpenAI 互換 URL',
@@ -399,6 +400,8 @@ export const ja: Record<Key, string> = {
   'set.upstreamOk': '接続中: Ollama {version}・モデル {models} 個・ロード済み {loaded} 個',
   'set.upstreamOkOpenai':
     '/v1 のみで接続中: モデル {models} 個（Ollama API がないため、ロード状況と VRAM は表示できません）',
+  'set.upstreamOkNoPs':
+    '接続中: Ollama {version}・モデル {models} 個（/api/ps が応答しないため、ロード状況は不明）',
   'set.upstreamDown': '接続できません: {error}',
   'set.upstreamChecking': '確認中…',
   'set.upstreamApply': '保存すると接続します。',
