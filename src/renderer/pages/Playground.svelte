@@ -52,8 +52,14 @@ const QUICK = [
   '/json',
   '/code',
   '/echo any text',
+  '/markdown',
+  '/unicode',
+  '/long 300',
+  '/empty',
+  '/tool search {"q": "cats"}',
   '/slow',
   '/error',
+  '/error 429',
   '/cut',
 ]
 

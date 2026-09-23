@@ -201,6 +201,11 @@ async function resetDefaults() {
 function setFault(r: Rule, v: string) {
   if (v) r.fault = v as FaultMode
   else delete r.fault
+  if (r.fault !== 'error500') delete r.status
+}
+function setStatus(r: Rule, v: string) {
+  if (v.trim()) r.status = v.trim()
+  else delete r.status
 }
 function setNum(r: Rule, key: 'ttftMs' | 'tps', v: string) {
   if (v === '') delete r[key]
@@ -299,7 +304,7 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
                 <span class="n">{i + 1}. {r.name}</span>
                 <span class="p mono" class:bad={!!err}>{r.match.kind === 'always' ? t('rules.always') : r.match.pattern}</span>
               </button>
-              {#if r.fault}<span class="chip red">{t(`fault.${r.fault}`)}</span>{/if}
+              {#if r.fault}<span class="chip red">{r.fault === 'error500' && r.status ? t('rules.fault.error500') : t(`fault.${r.fault}`)}</span>{/if}
               {#if r.id === hitId}<span class="chip violet">{t('rules.hit')}</span>{/if}
             </div>
           {:else}
@@ -381,6 +386,9 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
                   <option value="malformed">{t('rules.fault.malformed')}</option>
                 </select>
               </label>
+              {#if sel.fault === 'error500'}
+                <label class="field"><span>{t('rules.status')}</span><input class="input mono" value={sel.status ?? ''} placeholder="500" title={t('rules.statusHelp')} oninput={(e) => setStatus(sel, e.currentTarget.value)} /></label>
+              {/if}
             </div>
           </div>
         {:else}

@@ -44,8 +44,9 @@ src/preload/   window.mockolla, the only bridge
 src/shared/    types and the IPC contract (type-only, except channels.ts)
 src/renderer/  Svelte UI: lib/state.svelte.ts is the single store; pages/, components/
 tests/unit/    vitest; server tests use the official ollama and openai clients. By area:
-               server, api (model management, control API, OpenAI extras), parallel (slots
-               really run at once), proxy, recordings, engine, chat-rules, defaults, upgrade,
+               server, api (model management, control API, OpenAI extras, test commands), parallel (slots
+               really run at once), proxy, recordings, engine, chat-rules and rule-coverage
+               (every built-in rule reachable, samples in rule-cases.ts), defaults, upgrade,
                config, files, cli (spawns src/core/cli.ts), client (main's playground and
                load generator), export, elec
 tests/e2e/     Playwright + Electron; each spec starts the app with its own folder and port
@@ -84,8 +85,10 @@ scripts/       gen-icon, earlier-defaults, screenshots
   patterns read the first line only (`^[^\n]*`, no `m` flag). Order matters: exact inputs
   (test words, arithmetic, simple facts) first, then requests (most specific first), small
   talk last, so "誕生日プレゼントのおすすめ" is a recommendation, not a birthday. A captured
-  word must be what the reply claims it is (明日 is not a city). Every new intent gets cases
-  in `tests/unit/chat-rules.test.ts`, including prompts it must NOT catch.
+  word must be what the reply claims it is (明日 is not a city). Every new rule gets a sample
+  prompt in `tests/unit/rule-cases.ts` - `rule-coverage.test.ts` fails for a built-in rule
+  without one, or one an earlier rule shadows - and `chat-rules.test.ts` gets prompts it
+  must NOT catch.
 - **Built-in rule changes reach existing files through the Rules page offer**
   (`rules-merge.ts`): a new id is offered as new; a changed built-in rule is offered as an
   update only to files that still hold an earlier version unedited (by fingerprint). After

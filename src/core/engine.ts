@@ -45,6 +45,8 @@ export interface Plan {
   ttftMs?: number
   tps?: number
   fault?: FaultMode
+  /** The HTTP status for an error500 fault, when the rule sets one. */
+  errorStatus?: number
   /** A recorded reply: stream these pieces as they are instead of re-tokenizing the text. */
   chunks?: { t: string; think: boolean }[]
 }
@@ -116,6 +118,9 @@ export function calc(expr: string): string | undefined {
   }
 }
 
+/** The most words one {{lorem:N}} makes. */
+const MAX_LOREM = 20_000
+
 function placeholder(expr: string, ctx: Ctx): string | undefined {
   const [name = '', ...rest] = expr.split(':')
   const arg = rest.join(':')
@@ -128,11 +133,12 @@ function placeholder(expr: string, ctx: Ctx): string | undefined {
     case 'model':
       return prompt.model
     case 'lorem':
-      return lorem(rng, Number(arg) || 20, 'en')
+      // Capped: /long 99999 must not build megabytes of text.
+      return lorem(rng, Math.min(Number(arg) || 20, MAX_LOREM), 'en')
     case 'lorem-ja':
-      return lorem(rng, Number(arg) || 12, 'ja')
+      return lorem(rng, Math.min(Number(arg) || 12, MAX_LOREM), 'ja')
     case 'lorem-auto':
-      return lorem(rng, Number(arg) || 20, 'auto', prompt.last)
+      return lorem(rng, Math.min(Number(arg) || 20, MAX_LOREM), 'auto', prompt.last)
     case 'date':
       return new Date().toISOString().slice(0, 10)
     case 'time':
@@ -153,14 +159,8 @@ function placeholder(expr: string, ctx: Ctx): string | undefined {
       const items = arg.split('|').map((s) => s.trim())
       return items.length ? pick(rng, items) : ''
     }
-    case 'calc': {
-      // Captured groups inside the expression: {{calc:$1+$2}}.
-      const g = ctx.groups
-      const filled = arg.replace(/\$<([A-Za-z_]\w*)>|\$(\d{1,2})/g, (_w, n?: string, d?: string) =>
-        g ? ((n !== undefined ? g.groups?.[n] : g[Number(d)]) ?? '') : '',
-      )
-      return calc(filled) ?? '?'
-    }
+    case 'calc':
+      return calc(arg) ?? '?'
     default:
       return undefined
   }
@@ -175,6 +175,15 @@ function placeholder(expr: string, ctx: Ctx): string | undefined {
  *   {{date}} {{time}} {{now}} {{uuid}} {{n}} {{int:A-B}} {{pick:a|b|c}} {{calc:$1+$2}}
  * Unknown placeholders are left as they are.
  */
+/** $1 and $<name> inside a placeholder's argument, from the regex groups. */
+function fillGroups(expr: string, g: RegExpExecArray | null): string {
+  if (!g || !expr.includes('$')) return expr
+  return expr.replace(
+    /\$<([A-Za-z_]\w*)>|\$(\d{1,2})/g,
+    (_w, n?: string, d?: string) => (n !== undefined ? g.groups?.[n] : g[Number(d)]) ?? '',
+  )
+}
+
 export function renderTemplate(tpl: string, ctx: Ctx): string {
   const esc = (s: string) => (ctx.json ? jsonEscape(s) : s)
   return tpl.replace(
@@ -185,7 +194,10 @@ export function renderTemplate(tpl: string, ctx: Ctx): string {
       if (whole === '$&') return g ? esc(g[0]) : whole
       if (named !== undefined) return g ? esc(g.groups?.[named] ?? '') : whole
       if (idx !== undefined) return g ? esc(g[Number(idx)] ?? '') : whole
-      const v = placeholder(expr ?? '', ctx)
+      const filled = fillGroups(expr ?? '', g)
+      // {{raw:...}} goes in as it is, even into JSON: /tool passes a JSON object through.
+      if (/^\s*raw\s*:/.test(filled)) return filled.replace(/^\s*raw\s*:/, '')
+      const v = placeholder(filled, ctx)
       return v === undefined ? whole : esc(v)
     },
   )
@@ -253,18 +265,19 @@ function renderResponse(
     case 'json':
       return { text: renderTemplate(spec.text, { ...ctx, json: true }), toolCalls: [] }
     case 'tool': {
+      const name = renderTemplate(spec.toolName ?? '', ctx).trim() || 'tool'
       const raw = renderTemplate(spec.text || '{}', { ...ctx, json: true })
       let args: unknown
       try {
-        args = JSON.parse(raw)
+        args = raw.trim() ? JSON.parse(raw) : {}
       } catch {
         return {
           text: '',
-          toolCalls: [{ name: spec.toolName ?? 'tool', arguments: {} }],
+          toolCalls: [{ name, arguments: {} }],
           error: `tool arguments are not valid JSON: ${raw}`,
         }
       }
-      return { text: '', toolCalls: [{ name: spec.toolName ?? 'tool', arguments: args }] }
+      return { text: '', toolCalls: [{ name, arguments: args }] }
     }
   }
 }
@@ -408,6 +421,10 @@ export class Engine {
     if (rule?.ttftMs !== undefined) plan.ttftMs = rule.ttftMs
     if (rule?.tps !== undefined) plan.tps = rule.tps
     if (rule?.fault) plan.fault = rule.fault
+    if (rule?.fault === 'error500' && rule.status) {
+      const n = Number.parseInt(renderTemplate(rule.status, ctx), 10)
+      if (n >= 400 && n <= 599) plan.errorStatus = n
+    }
     if (out.error) plan.error = out.error
     return plan
   }
@@ -428,7 +445,8 @@ export class Engine {
         thinking: plan.thinking,
         toolCalls: plan.toolCalls,
       }
-      if (plan.fault) r.error = `fault: ${plan.fault}`
+      if (plan.fault)
+        r.error = `fault: ${plan.fault}${plan.errorStatus ? ` (${plan.errorStatus})` : ''}`
       if (plan.error) r.error = plan.error
       return r
     } catch (e) {

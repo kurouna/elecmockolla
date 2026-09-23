@@ -170,13 +170,27 @@ recorded prompt is answered from [Recordings](#recordings) before any of them.)
 3. **Fallback** — lorem ipsum by default, in Japanese when the prompt is Japanese.
 
 Templates understand `$1`…`$99`, `$<name>`, `$&`, and `{{prompt}}`, `{{model}}`,
-`{{lorem:N}}`, `{{lorem-ja:N}}`, `{{int:1-100}}`, `{{pick:a|b|c}}`, `{{calc:$1+$2}}`, `{{uuid}}`, `{{date}}`,
-`{{time}}`, `{{now}}`, `{{n}}`. When the client asks for `format: "json"` or a JSON schema and
+`{{lorem:N}}`, `{{lorem-ja:N}}`, `{{int:1-100}}`, `{{pick:a|b|c}}`, `{{calc:$1+$2}}`, `{{uuid}}`,
+`{{date}}`, `{{time}}`, `{{now}}`, `{{n}}`, and `{{raw:$1}}` (inserted as is, even into JSON).
+Captured groups work inside placeholders too: `{{lorem:$1}}`, `{{pick:$1|$2}}`. A rule that
+fails with an HTTP error can set its status, also from the prompt (`$1` → `/error 429`). When the client asks for `format: "json"` or a JSON schema and
 the rule replied with text, a valid document is produced (fake values that follow the schema).
 
-The default `rules.json` starts with one slash command per feature: `/json`, `/code`,
-`/echo …`, `/slow`, `/error`, `/cut`. Then come replies for the conversations an AI chat
-usually has, in Japanese and English:
+The default `rules.json` starts with slash commands for testing how your app handles a reply:
+
+| Command | Reply |
+|---|---|
+| `/echo …` | the text after it |
+| `/json`, `/code`, `/markdown` (`/md`) | JSON; a code block; every Markdown element (tables, nested lists, tasks, footnotes…) |
+| `/unicode` | emoji sequences, combining marks, right-to-left text, zero-width and full-width characters |
+| `/long`, `/long 5000` | a long reply, or that many words (up to 20,000) |
+| `/empty` | an empty reply that still ends properly |
+| `/slow` | a slow stream (2.5 s to the first token, 4 tok/s) |
+| `/error`, `/error 429`, `/error 401` | fails with HTTP 500, or that status (429 and 503 add `Retry-After`) |
+| `/cut` | a stream cut off halfway |
+| `/tool name {"a": 1}` | a call to any tool, with those arguments |
+
+Then come replies for the conversations an AI chat usually has, in Japanese and English:
 
 - **Greetings** by the time of day (おはよう, good night…), "I'm home", よろしく, long time no
   see, New Year and Christmas.
@@ -185,6 +199,8 @@ usually has, in Japanese and English:
   alphabet and あいうえお.
 - **What a kindergartner knows**: the color of the sky, apples, snow and a rainbow, traffic
   lights, what animals say, how many legs, days in a week, months in a year, the seasons.
+- **Follow-ups**: continue, make it shorter, as a bulleted list, answer in English /
+  Japanese.
 - **Requests**: "what is …", "how do I …", comparisons (as a table), code (TypeScript or
   Python), fixing an error, summaries, translation, rewriting, emails, recommendations, pros
   and cons, ideas, poems, stories, jokes, recipes, the weather, fortune-telling, the date and

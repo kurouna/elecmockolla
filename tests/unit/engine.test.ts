@@ -234,3 +234,29 @@ describe('{{calc:...}}', () => {
     expect(renderTemplate('{{calc:not math}}', ctx)).toBe('?')
   })
 })
+
+describe('captured groups inside placeholders', () => {
+  it('fill {{lorem:$1}}, {{pick:$1|$2}} and pass {{raw:...}} through unescaped', () => {
+    const rng = createRng(1)
+    const prompt = { model: 'm', last: '', all: '', system: '', think: false }
+    const groups = /(\d+) (\w+) (\w+) (\{.*\})/.exec('5 red blue {"a": "b"}')
+    const ctx = { rng, prompt, json: false, requestNo: 1, groups }
+    expect(renderTemplate('{{lorem:$1}}', ctx).split(' ')).toHaveLength(5)
+    expect(['red', 'blue']).toContain(renderTemplate('{{pick:$2|$3}}', ctx))
+    expect(renderTemplate('{{raw:$4}}', { ...ctx, json: true })).toBe('{"a": "b"}')
+    // Outside {{raw}}, a JSON template still escapes what it captures.
+    expect(renderTemplate('"$4"', { ...ctx, json: true })).toBe('"{\\"a\\": \\"b\\"}"')
+  })
+
+  it('caps {{lorem:N}}', () => {
+    const rng = createRng(1)
+    const ctx = {
+      rng,
+      prompt: { model: 'm', last: '', all: '', system: '', think: false },
+      json: false,
+      requestNo: 1,
+      groups: null,
+    }
+    expect(renderTemplate('{{lorem:99999}}', ctx).split(' ').length).toBeLessThanOrEqual(20_000)
+  })
+})

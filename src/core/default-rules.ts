@@ -283,7 +283,7 @@ const KIDS: Intent[] = [
       '信号は **赤・黄・青** の3色です。赤は「止まれ」、黄は「注意」、青は「進んでよい」です。',
     ],
     en: [
-      String.raw`^[^\n]*\btraffic lights?\b[^\n]*\bcolou?rs?\b`,
+      String.raw`^[^\n]*(?:\btraffic lights?\b[^\n]*\bcolou?rs?\b|\bcolou?rs?\b[^\n]*\btraffic lights?\b)`,
       'Traffic lights are **red, yellow and green**: red means stop, yellow means slow down, green means go.',
     ],
   },
@@ -363,6 +363,71 @@ const KIDS: Intent[] = [
     en: [
       String.raw`^[^\n]*\b(?:where|which (?:way|direction)) does the sun (?:rise|come up)\b`,
       'The sun rises in the **east** and sets in the **west**.',
+    ],
+  },
+]
+
+// --- follow-ups: the second turn of a conversation ---------------------------------
+
+const FOLLOWUPS: Intent[] = [
+  {
+    id: 'continue',
+    name: 'Continue',
+    ja: [
+      String.raw`^\s*(?:続けて|つづけて|続き(?:を|は)?(?:お願い|ください|教えて|書いて)?|その続き(?:を|は)?|それで？|それから？)[。！!？?]*\s*$`,
+      '続けます。\n\n{{lorem-ja:30}}\n\nさらに続けますか？',
+    ],
+    en: [
+      String.raw`^\s*(?:continue|go on|keep going|carry on|and then|what'?s next|more,? please|tell me more)\s*[.!?]*\s*$`,
+      'Continuing:\n\n{{lorem:40}}\n\nShall I keep going?',
+    ],
+  },
+  {
+    id: 'shorter',
+    name: 'Make it shorter',
+    ja: [
+      String.raw`^[^\n]*(?:もっと短く|短くして|短めに|簡潔に|一言で|ひとことで|要するに|長すぎ)`,
+      '短くまとめると：{{lorem-ja:8}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:shorter|make it short|in one sentence|in a nutshell|briefly|too long|keep it short)\b`,
+      'In short: {{lorem:10}}.',
+    ],
+  },
+  {
+    id: 'bullets',
+    name: 'As a bulleted list',
+    ja: [
+      String.raw`^[^\n]*(?:箇条書き|リストにして|リスト形式|リストで)`,
+      '箇条書きにしました。\n\n- {{lorem-ja:5}}\n- {{lorem-ja:5}}\n- {{lorem-ja:5}}\n- {{lorem-ja:5}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:bullet(?:ed)? (?:points|list)|bullets|as a list|in a list|list form)\b`,
+      'As a list:\n\n- {{lorem:6}}\n- {{lorem:6}}\n- {{lorem:6}}\n- {{lorem:6}}',
+    ],
+  },
+  {
+    id: 'to-english',
+    name: 'Answer in English',
+    ja: [
+      String.raw`^[^\n]*英語で(?:答え|返事|返信|話し|お願い|書いて|説明|教えて)`,
+      "Sure — from here on I'll answer in English. {{lorem:20}}",
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:answer|reply|respond|speak|talk|write|say (?:it|that))\b[^\n]*\bin english\b`,
+      "Sure — I'll answer in English. {{lorem:20}}",
+    ],
+  },
+  {
+    id: 'to-japanese',
+    name: 'Answer in Japanese',
+    ja: [
+      String.raw`^[^\n]*日本語で(?:答え|返事|返信|話し|お願い|書いて|説明|教えて)`,
+      'わかりました。ここからは日本語でお答えします。{{lorem-ja:15}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:answer|reply|respond|speak|talk|write|say (?:it|that))\b[^\n]*\bin japanese\b`,
+      'わかりました。日本語でお答えします。{{lorem-ja:15}}',
     ],
   },
 ]
@@ -522,6 +587,8 @@ const CHAT: Intent[] = [
       "I'm sorry, but I can't help with that. It could cause real harm to people or systems. {{pick:I'm happy to help with how to defend against it instead.|If you have a different goal in mind, tell me and I'll suggest a safe way to get there.}}",
     ],
   },
+  // Follow-ups before the requests: "make it shorter" is not a rewrite request.
+  ...FOLLOWUPS,
   {
     id: 'code-python',
     name: 'Write Python',

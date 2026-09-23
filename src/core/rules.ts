@@ -66,11 +66,12 @@ export function defaultRules(): RulesFile {
       },
       {
         id: 'error',
-        name: '/error (HTTP 500)',
+        name: '/error [status] (HTTP 500, or 429, 401…)',
         enabled: true,
-        match: { kind: 'regex', pattern: '^/error\\b' },
+        match: { kind: 'regex', pattern: '^/error\\b(?:\\s+(\\d{3}))?' },
         response: { kind: 'template', text: '' },
         fault: 'error500',
+        status: '$1',
       },
       {
         id: 'cut',
@@ -79,6 +80,112 @@ export function defaultRules(): RulesFile {
         match: { kind: 'regex', pattern: '^/cut\\b' },
         response: { kind: 'lorem', text: '', lang: 'auto', minWords: 60, maxWords: 80 },
         fault: 'disconnect',
+      },
+      {
+        id: 'long-n',
+        name: '/long <words> (a reply of that length)',
+        enabled: true,
+        match: { kind: 'regex', pattern: '^/long\\s+(\\d{1,5})\\b' },
+        response: { kind: 'template', text: '{{lorem-auto:$1}}' },
+      },
+      {
+        id: 'long',
+        name: '/long (a long reply)',
+        enabled: true,
+        match: { kind: 'regex', pattern: '^/long\\b' },
+        response: { kind: 'lorem', text: '', lang: 'auto', minWords: 1000, maxWords: 1000 },
+      },
+      {
+        id: 'markdown',
+        name: '/markdown (every Markdown element)',
+        enabled: true,
+        match: { kind: 'regex', pattern: '^/(?:markdown|md)\\b' },
+        response: {
+          kind: 'template',
+          text: [
+            '# Heading 1',
+            '## Heading 2',
+            '### Heading 3',
+            '',
+            'A paragraph with **bold**, *italic*, ***both***, ~~strikethrough~~, `inline code` and a [link](https://example.com).',
+            'A second line in the same paragraph.',
+            '',
+            '> A quote.',
+            '> > A quote inside a quote.',
+            '',
+            '- A list item',
+            '  - A nested item',
+            '    - Nested deeper',
+            '- Another item',
+            '',
+            '1. First',
+            '2. Second',
+            '   1. Nested and numbered',
+            '',
+            '- [x] A done task',
+            '- [ ] A task to do',
+            '',
+            '| Left | Center | Right |',
+            '|:---|:---:|---:|',
+            '| a | b | c |',
+            '| longer cell | `code` | **bold** |',
+            '',
+            '```ts',
+            'export function add(a: number, b: number): number {',
+            '  return a + b',
+            '}',
+            '```',
+            '',
+            '```',
+            'a code block with no language',
+            '```',
+            '',
+            '---',
+            '',
+            'Inline math $a^2 + b^2 = c^2$, an image ![alt text](https://example.com/image.png), a footnote[^1] and an HTML <kbd>Ctrl</kbd>.',
+            '',
+            '[^1]: The footnote.',
+          ].join('\n'),
+        },
+      },
+      {
+        id: 'unicode',
+        name: '/unicode (text that trips up rendering)',
+        enabled: true,
+        match: { kind: 'regex', pattern: '^/unicode\\b' },
+        response: {
+          kind: 'template',
+          text: [
+            'Emoji: 😀 👍🏽 👨\u200d👩\u200d👧\u200d👦 🏳\ufe0f\u200d🌈 🇯🇵 ❤\ufe0f 1\ufe0f\u20e3',
+            'Combining marks: e\u0301 (e + U+0301) vs é, n\u0303, Z\u0335\u0321a\u0336\u031bl\u0337\u0322g\u0334o\u0335',
+            'Right to left: العربية · עברית · mixed: abc אבג 123',
+            'Zero-width: [\u200b] zero-width space, [\u200d] joiner, [\u00ad] soft hyphen, [\ufeff] BOM',
+            'Full and half width: ＡＢＣ１２３ ABC123 ｱｲｳｴｵ アイウエオ',
+            'Beyond the BMP: 𠮷野家 𝕌𝕟𝕚𝕔𝕠𝕕𝕖 𝄞',
+            'Scripts: 日本語 한국어 中文 ไทย हिन्दी Ελληνικά Русский',
+            'Symbols: ∑ ∞ ≠ ≤ ≥ → ⇒ ✓ ✗ ° ± × ÷ ¥ € £',
+            'Whitespace: [\t] tab, [\u00a0] no-break space, [\u3000] ideographic space',
+            'A very long word: Supercalifragilisticexpialidocious_and_then_some_more_without_any_spaces_to_break_on',
+          ].join('\n'),
+        },
+      },
+      {
+        id: 'empty',
+        name: '/empty (an empty reply)',
+        enabled: true,
+        match: { kind: 'regex', pattern: '^/empty\\b' },
+        response: { kind: 'template', text: '' },
+      },
+      {
+        id: 'tool',
+        name: '/tool <name> [{json}] (any tool call)',
+        enabled: true,
+        match: {
+          kind: 'regex',
+          pattern:
+            '^/tool\\s+(?<name>[A-Za-z_][\\w.-]{0,63})(?:\\s+(?<args>\\{[\\s\\S]*\\}))?\\s*$',
+        },
+        response: { kind: 'tool', toolName: '$<name>', text: '{{raw:$<args>}}' },
       },
       {
         id: 'greeting',
@@ -198,6 +305,24 @@ export function regexError(pattern: string, flags = ''): string {
 function normalizeRule(v: unknown, i: number): Rule {
   const where = `rules[${i}]`
   if (!isObj(v)) throw new RulesError(`${where} must be an object`)
+  const rule: Rule = {
+    id: str(v.id) || `rule-${i + 1}`,
+    name: str(v.name) || str(v.id) || `Rule ${i + 1}`,
+    enabled: v.enabled !== false,
+    match: normalizeMatch(v, where),
+    response: normalizeResponse(v.response, where),
+  }
+  const status = str(v.status).trim()
+  if (status) rule.status = status.slice(0, 40)
+  const ttft = num(v.ttftMs)
+  if (ttft !== undefined) rule.ttftMs = ttft
+  const tps = num(v.tps)
+  if (tps !== undefined) rule.tps = tps
+  if (FAULT_MODES.includes(v.fault as FaultMode)) rule.fault = v.fault as FaultMode
+  return rule
+}
+
+function normalizeMatch(v: Obj, where: string): Rule['match'] {
   const m = isObj(v.match) ? v.match : {}
   const match: Rule['match'] = {
     kind: oneOf(m.kind, MATCH_KINDS, 'regex'),
@@ -216,19 +341,7 @@ function normalizeRule(v: unknown, i: number): Rule {
     const err = regexError(match.model, 'i')
     if (err) throw new RulesError(`${where}: model pattern: ${err}`)
   }
-  const rule: Rule = {
-    id: str(v.id) || `rule-${i + 1}`,
-    name: str(v.name) || str(v.id) || `Rule ${i + 1}`,
-    enabled: v.enabled !== false,
-    match,
-    response: normalizeResponse(v.response, where),
-  }
-  const ttft = num(v.ttftMs)
-  if (ttft !== undefined) rule.ttftMs = ttft
-  const tps = num(v.tps)
-  if (tps !== undefined) rule.tps = tps
-  if (FAULT_MODES.includes(v.fault as FaultMode)) rule.fault = v.fault as FaultMode
-  return rule
+  return match
 }
 
 function normalizeKeyword(v: unknown, i: number): KeywordEntry {

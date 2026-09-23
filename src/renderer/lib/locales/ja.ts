@@ -219,8 +219,11 @@ export const ja: Record<Key, string> = {
   'rules.ttft': 'TTFT (ms)',
   'rules.tps': 'トークン/秒',
   'rules.global': '全体設定',
+  'rules.status': 'ステータス',
+  'rules.statusHelp':
+    'エラーの HTTP ステータス（400〜599、既定は 500）。$1 でパターンから取り出せます。',
   'rules.fault': '障害',
-  'rules.fault.error500': 'HTTP 500',
+  'rules.fault.error500': 'HTTP エラー',
   'rules.fault.disconnect': 'ストリーム途中で切断',
   'rules.fault.hang': 'ハング（応答なし）',
   'rules.fault.malformed': '壊れた JSON',

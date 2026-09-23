@@ -219,8 +219,11 @@ export const en = {
   'rules.ttft': 'TTFT (ms)',
   'rules.tps': 'Tokens / s',
   'rules.global': 'global',
+  'rules.status': 'Status',
+  'rules.statusHelp':
+    'HTTP status of the error, 400-599 (default 500). $1 takes it from the pattern.',
   'rules.fault': 'Fault',
-  'rules.fault.error500': 'HTTP 500',
+  'rules.fault.error500': 'HTTP error',
   'rules.fault.disconnect': 'disconnect mid-stream',
   'rules.fault.hang': 'hang (no reply)',
   'rules.fault.malformed': 'malformed JSON',

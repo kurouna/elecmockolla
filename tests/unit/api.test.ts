@@ -249,3 +249,94 @@ describe('changing the model list', () => {
     }
   })
 })
+
+describe('commands for testing how an app shows a reply', () => {
+  let server: MockServer
+  let url: string
+  let ollama: Ollama
+  let openai: OpenAI
+  beforeAll(async () => {
+    ;({ server, url } = await startServer())
+    ollama = new Ollama({ host: url })
+    openai = new OpenAI({ baseURL: `${url}/v1`, apiKey: 'ollama', maxRetries: 0 })
+  })
+  afterAll(() => server.stop())
+
+  it('/error <status> fails with that status, and says when to retry a 429', async () => {
+    const tooMany = await fetch(
+      `${url}/api/chat`,
+      json({ model: 'm', messages: [{ role: 'user', content: '/error 429' }] }),
+    )
+    expect(tooMany.status).toBe(429)
+    expect(tooMany.headers.get('retry-after')).toBe('1')
+    expect(await tooMany.json()).toEqual({ error: 'mock: injected too many requests' })
+    await expect(
+      openai.chat.completions.create({
+        model: 'm',
+        messages: [{ role: 'user', content: '/error 401' }],
+      }),
+    ).rejects.toMatchObject({ status: 401 })
+    const plain = await fetch(`${url}/api/generate`, json({ model: 'm', prompt: '/error' }))
+    expect(plain.status).toBe(500)
+    const outOfRange = await fetch(
+      `${url}/api/generate`,
+      json({ model: 'm', prompt: '/error 999' }),
+    )
+    expect(outOfRange.status).toBe(500)
+    expect(server.monitor.recent().at(-1)).toMatchObject({ status: 500, state: 'error' })
+  })
+
+  it('/empty streams a reply with no text that still ends properly', async () => {
+    const parts: string[] = []
+    let done = false
+    for await (const p of await ollama.chat({
+      model: 'm',
+      messages: [{ role: 'user', content: '/empty' }],
+      stream: true,
+    })) {
+      parts.push(p.message.content)
+      done ||= p.done
+    }
+    expect(parts.join('')).toBe('')
+    expect(done).toBe(true)
+    const r = await openai.chat.completions.create({
+      model: 'm',
+      messages: [{ role: 'user', content: '/empty' }],
+    })
+    expect(r.choices[0]?.message.content).toBe('')
+    expect(r.choices[0]?.finish_reason).toBe('stop')
+  })
+
+  it('/long <n> gives that many words, capped', async () => {
+    const r = await ollama.generate({ model: 'm', prompt: '/long 300' })
+    expect(r.response.trim().split(/\s+/)).toHaveLength(300)
+  })
+
+  it('/tool calls any tool with the arguments given', async () => {
+    const r = await ollama.chat({
+      model: 'm',
+      messages: [{ role: 'user', content: '/tool search_docs {"query": "cats", "limit": 3}' }],
+    })
+    expect(r.message.tool_calls?.[0]?.function).toMatchObject({
+      name: 'search_docs',
+      arguments: { query: 'cats', limit: 3 },
+    })
+    const o = await openai.chat.completions.create({
+      model: 'm',
+      messages: [{ role: 'user', content: '/tool ping' }],
+    })
+    const call = o.choices[0]?.message.tool_calls?.[0]
+    expect(call?.type === 'function' && call.function.name).toBe('ping')
+    expect(call?.type === 'function' && JSON.parse(call.function.arguments)).toEqual({})
+  })
+
+  it('/markdown and /unicode come back byte for byte', async () => {
+    const md = await ollama.generate({ model: 'm', prompt: '/markdown' })
+    expect(md.response).toContain('| Left | Center | Right |')
+    expect(md.response).toContain('```ts')
+    const uni = await ollama.generate({ model: 'm', prompt: '/unicode' })
+    expect(uni.response).toContain('👨‍👩‍👧‍👦')
+    expect(uni.response).toContain('é')
+    expect(uni.response).toContain('𠮷')
+  })
+})

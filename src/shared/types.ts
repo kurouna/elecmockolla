@@ -98,6 +98,11 @@ export interface Rule {
   tps?: number
   /** Always fail requests that match this rule. */
   fault?: FaultMode
+  /**
+   * The HTTP status of an error500 fault, 400-599 (default 500). A template, so it can come
+   * from the prompt: "$1" with /error (\d{3}).
+   */
+  status?: string
 }
 
 /** The quick table: a reply for any prompt containing the keyword. */

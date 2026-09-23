@@ -146,6 +146,23 @@ function parseJson(raw: Buffer): unknown {
 
 const readBody = async (req: IncomingMessage): Promise<unknown> => parseJson(await readRaw(req))
 
+/** Reasons for the statuses an injected error can have (the text after "mock: injected"). */
+const STATUS_TEXT: Record<number, string> = {
+  400: 'bad request',
+  401: 'unauthorized',
+  403: 'forbidden',
+  404: 'not found',
+  408: 'request timeout',
+  409: 'conflict',
+  413: 'payload too large',
+  422: 'unprocessable entity',
+  429: 'too many requests',
+  500: 'internal server error',
+  502: 'bad gateway',
+  503: 'service unavailable',
+  504: 'gateway timeout',
+}
+
 /** The endpoints whose traffic is recorded in proxy and mixed modes; the rest pass straight through. */
 const PROXY_APIS: Record<string, Api> = {
   'POST /api/generate': 'generate',
@@ -859,11 +876,20 @@ export class MockServer {
     }
   }
 
-  /** The injected HTTP 500: an error reply, before any output. */
-  private injectError500(rec: RequestRecord, res: ServerResponse, fail: typeof ollamaError): void {
-    const msg = 'mock: injected internal server error'
-    fail(res, 500, msg)
-    this.monitor.finish(rec, 'error', 500, msg)
+  /**
+   * The injected HTTP error (500 unless a rule sets another status): an error reply, before
+   * any output. 429 and 503 say when to retry, as rate limiters and busy servers do.
+   */
+  private injectError500(
+    rec: RequestRecord,
+    res: ServerResponse,
+    fail: typeof ollamaError,
+    status = 500,
+  ): void {
+    const msg = `mock: injected ${STATUS_TEXT[status] ?? `HTTP ${status} error`}`
+    if (status === 429 || status === 503) res.setHeader('Retry-After', '1')
+    fail(res, status, msg)
+    this.monitor.finish(rec, 'error', status, msg)
   }
 
   /**
@@ -940,7 +966,7 @@ export class MockServer {
       rec.state = 'waiting'
       const waited = Math.min(jittered(Math.random, cfg.ttftMs, cfg.jitter), 1000)
       if (!(await sleep(waited, signal))) throw new AbortedError()
-      return this.injectError500(rec, res, fail)
+      return this.injectError500(rec, res, fail, plan.errorStatus)
     }
     if (fault === 'hang') return this.injectHang(rec, res, signal)
 
