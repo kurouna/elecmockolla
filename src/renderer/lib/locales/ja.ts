@@ -397,6 +397,8 @@ export const ja: Record<Key, string> = {
   'set.upstreamHelp':
     'プロキシ・混在モードの転送先となる本物の Ollama の OpenAI 互換 URL（/v1 付き）。Ollama API（/api/…）も同じサーバーに送ります。',
   'set.upstreamOk': '接続中: Ollama {version}・モデル {models} 個・ロード済み {loaded} 個',
+  'set.upstreamOkOpenai':
+    '/v1 のみで接続中: モデル {models} 個（Ollama API がないため、ロード状況と VRAM は表示できません）',
   'set.upstreamDown': '接続できません: {error}',
   'set.upstreamChecking': '確認中…',
   'set.upstreamApply': '保存すると接続します。',

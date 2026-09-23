@@ -348,6 +348,7 @@ export class UpstreamWatch {
         url,
         ok: false,
         error: '',
+        api: '',
         version: '',
         models: [],
         loaded: [],
@@ -362,6 +363,14 @@ export class UpstreamWatch {
   stop(): void {
     if (this.timer) clearInterval(this.timer)
     this.timer = null
+  }
+
+  /**
+   * True when the model is known to be cold: Ollama's /api/ps answers and does not
+   * list it. A server without /api/ps never says, so nothing is assumed about it.
+   */
+  isCold(model: string): boolean {
+    return this.info?.api === 'ollama' && !this.isLoaded(model)
   }
 
   /** True when the model is known to be in memory upstream. */
@@ -382,35 +391,63 @@ export class UpstreamWatch {
   private async fetchInfo(): Promise<void> {
     const url = this.url
     const root = upstreamRoot(url)
-    try {
-      const [v, tags, ps] = await Promise.all(
-        ['/api/version', '/api/tags', '/api/ps'].map((p) => getJson(`${root}${p}`)),
-      )
-      if (url !== this.url) return
-      const names = (o: unknown) =>
-        isObj(o) && Array.isArray(o.models) ? o.models.filter(isObj) : []
+    // Ollama's own API lives at the server root, not under /v1; the OpenAI-compatible
+    // model list is under the URL as given. Either one answering is a live server.
+    const v1 = url === root ? `${root}/v1` : url
+    const [v, tags, ps, models] = await Promise.allSettled([
+      getJson(`${root}/api/version`),
+      getJson(`${root}/api/tags`),
+      getJson(`${root}/api/ps`),
+      getJson(`${v1}/models`),
+    ])
+    if (url !== this.url || !this.info) return
+    const value = (r: PromiseSettledResult<unknown>) => (r.status === 'fulfilled' ? r.value : null)
+    const list = (o: unknown, key: string) =>
+      isObj(o) && Array.isArray(o[key]) ? (o[key] as unknown[]).filter(isObj) : []
+    const now = Date.now()
+    if (tags.status === 'fulfilled') {
+      const version = value(v)
       this.info = {
         url,
         ok: true,
         error: '',
-        version: isObj(v) ? str(v.version) : '',
-        models: names(tags).map((m) => normalizeModel(str(m.name) || str(m.model))),
-        loaded: names(ps).map((m) => ({
+        api: 'ollama',
+        version: isObj(version) ? str(version.version) : '',
+        models: list(tags.value, 'models').map((m) => normalizeModel(str(m.name) || str(m.model))),
+        loaded: list(value(ps), 'models').map((m) => ({
           name: normalizeModel(str(m.name) || str(m.model)),
           expiresAt: Date.parse(str(m.expires_at)) || Number.POSITIVE_INFINITY,
           sizeVram: num(m.size_vram),
         })),
-        checkedAt: Date.now(),
+        checkedAt: now,
       }
-    } catch (e) {
-      if (url === this.url && this.info)
-        this.info = {
-          ...this.info,
-          ok: false,
-          error: e instanceof Error ? e.message : String(e),
-          loaded: [],
-          checkedAt: Date.now(),
-        }
+    } else if (models.status === 'fulfilled') {
+      this.info = {
+        url,
+        ok: true,
+        error: '',
+        api: 'openai',
+        version: '',
+        models: list(models.value, 'data')
+          .map((m) => str(m.id))
+          .filter(Boolean),
+        loaded: [],
+        checkedAt: now,
+      }
+    } else {
+      const why = (r: PromiseSettledResult<unknown>) =>
+        r.status === 'rejected'
+          ? r.reason instanceof Error
+            ? r.reason.message
+            : String(r.reason)
+          : ''
+      this.info = {
+        ...this.info,
+        ok: false,
+        error: [why(models), why(tags)].filter(Boolean).join(' / '),
+        loaded: [],
+        checkedAt: now,
+      }
     }
   }
 }

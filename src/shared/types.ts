@@ -232,6 +232,12 @@ export interface UpstreamInfo {
   url: string
   ok: boolean
   error: string
+  /**
+   * What answered: 'ollama' - Ollama's own API (/api/...), with its version and loaded
+   * models; 'openai' - only the OpenAI-compatible /v1/models (LM Studio, llama.cpp, vLLM,
+   * or a proxy that exposes only /v1). '' before the first answer.
+   */
+  api: 'ollama' | 'openai' | ''
   version: string
   models: string[]
   loaded: { name: string; expiresAt: number; sizeVram: number }[]

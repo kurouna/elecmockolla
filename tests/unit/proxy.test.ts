@@ -1,3 +1,5 @@
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { Ollama } from 'ollama'
 import OpenAI from 'openai'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -100,7 +102,7 @@ describe('proxy mode', () => {
     expect(tags.models.map((m) => m.name)).toContain('gpt-oss:20b')
     await proxy.upstream.poll()
     const snap = proxy.snapshot(false)
-    expect(snap.upstream).toMatchObject({ ok: true, version: '0.12.0' })
+    expect(snap.upstream).toMatchObject({ ok: true, api: 'ollama', version: '0.12.0' })
     expect(snap.models).toContain('qwen3:8b')
   })
 
@@ -121,6 +123,37 @@ describe('proxy mode', () => {
       expect(g.response).toBeTruthy()
     } finally {
       await server.stop()
+    }
+  })
+
+  it('connects to a server that has only the OpenAI-compatible /v1', async () => {
+    // Like LM Studio, llama.cpp or a proxy exposing only /v1: /api/... is 404.
+    const v1only = createServer((req, res) => {
+      if (req.url?.startsWith('/api/')) {
+        res.writeHead(404).end('404 page not found')
+        return
+      }
+      void fetch(new URL(`${upUrl}${req.url}`), { method: req.method ?? 'GET' }).then(async (r) => {
+        res.writeHead(r.status, { 'content-type': r.headers.get('content-type') ?? '' })
+        res.end(Buffer.from(await r.arrayBuffer()))
+      })
+    })
+    await new Promise<void>((r) => v1only.listen(0, '127.0.0.1', r))
+    const port = (v1only.address() as AddressInfo).port
+    const { server } = await startServer({
+      mode: 'proxy',
+      upstream: `http://127.0.0.1:${port}/v1`,
+    })
+    try {
+      await server.upstream.poll()
+      const info = server.snapshot(false).upstream
+      expect(info).toMatchObject({ ok: true, api: 'openai', version: '', loaded: [] })
+      expect(info?.models).toContain('llama3.2:3b')
+      // With no /api/ps, a request is never shown as loading a model.
+      expect(server.upstream.isCold('llama3.2:3b')).toBe(false)
+    } finally {
+      await server.stop()
+      v1only.close()
     }
   })
 

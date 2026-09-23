@@ -1036,7 +1036,7 @@ export class MockServer {
       rec.slot = slot
       rec.t.started = Date.now()
       // Ollama does not say it is loading; its /api/ps tells us whether the model is in memory.
-      rec.state = this.upstream.isLoaded(model) ? 'waiting' : 'loading'
+      rec.state = this.upstream.isCold(model) ? 'loading' : 'waiting'
       const fault = this.pickFault(null)
       rec.fault = fault
       if (fault === 'error500') {

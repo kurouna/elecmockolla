@@ -394,6 +394,8 @@ export const en = {
   'set.upstreamHelp':
     'The real Ollama that proxy and mixed modes forward to: its OpenAI-compatible URL, ending in /v1. Ollama API requests (/api/...) go to the same server.',
   'set.upstreamOk': 'Connected: Ollama {version}, {models} models, {loaded} loaded',
+  'set.upstreamOkOpenai':
+    'Connected through /v1 only: {models} models (no Ollama API here, so no loaded models or VRAM)',
   'set.upstreamDown': 'Not reachable: {error}',
   'set.upstreamChecking': 'Checking…',
   'set.upstreamApply': 'Save to connect.',

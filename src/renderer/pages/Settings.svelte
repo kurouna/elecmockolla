@@ -105,7 +105,11 @@ function revert() {
             {:else if !up || !up.checkedAt}
               <span class="muted">{t('set.upstreamChecking')}</span>
             {:else if up.ok}
-              <span class="chip green"><span class="dot live"></span>{t('set.upstreamOk', { version: up.version, models: up.models.length, loaded: up.loaded.length })}</span>
+              <span class="chip green"
+                ><span class="dot live"></span>{up.api === 'openai'
+                  ? t('set.upstreamOkOpenai', { models: up.models.length })
+                  : t('set.upstreamOk', { version: up.version, models: up.models.length, loaded: up.loaded.length })}</span
+              >
             {:else}
               <span class="chip red">{t('set.upstreamDown', { error: up.error })}</span>
             {/if}
