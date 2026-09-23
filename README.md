@@ -121,6 +121,11 @@ among the others, **Don't add** stops offering them — and your own rules and e
 they are. Rules you deleted are not brought back (`rules.json` remembers the built-in rules it has
 seen in `seenDefaults`).
 
+Patterns are JavaScript regular expressions and run as written. A pattern with catastrophic
+backtracking (such as `(a+)+$`) can take seconds or longer on some prompts, and while it runs the
+tester — or the server, for a real request — does not respond. Keep patterns simple, or anchor
+them.
+
 <p align="center">
   <img src="./docs/screenshots/rules.png" width="49%" alt="The rules editor with a regex rule, its reply template and a live tester">
   <img src="./docs/screenshots/requests.png" width="49%" alt="The request inspector: a list of requests and the selected one's prompt, reply and timings">
@@ -134,7 +139,7 @@ Set the mode in **Settings** (or `MOCKOLLA_MODE`, `--mode`):
 |---|---|
 | `mock` (default) | all made up by the rules |
 | `proxy` | all from the real Ollama at `MOCKOLLA_UPSTREAM` (default `http://127.0.0.1:11434/v1`) |
-| `mixed` | a matching rule or keyword answers; anything that would reach the fallback goes to Ollama |
+| `mixed` | a matching rule or keyword answers; anything that would reach the fallback goes to Ollama — except for a model only the mock has, which the fallback answers |
 
 The server and Ollama cannot share a port, so run this one on another port and point your app
 at it:

@@ -146,6 +146,24 @@ function go(id: Section) {
   scroller?.querySelector(`#sec-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 const modeLabel = (m: ServerMode) => t(`mode.${m}`)
+
+/** Arrow keys move the choice within the radio group, as a native radio group does. */
+function modeKey(e: KeyboardEvent) {
+  const step: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
+  const i = SERVER_MODES.indexOf(form.mode)
+  const n = SERVER_MODES.length
+  let next: number
+  if (e.key === 'Home') next = 0
+  else if (e.key === 'End') next = n - 1
+  else if (e.key in step) next = (i + (step[e.key] ?? 0) + n) % n
+  else return
+  e.preventDefault()
+  const m = SERVER_MODES[next]
+  if (!m) return
+  form.mode = m
+  const group = e.currentTarget as HTMLElement
+  group.querySelectorAll<HTMLElement>('[role="radio"]')[next]?.focus()
+}
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -171,9 +189,9 @@ const modeLabel = (m: ServerMode) => t(`mode.${m}`)
       <h3>{t('set.sec.mode')}</h3>
       <p class="desc">{t('set.sec.mode.desc')}</p>
       <div class="card body">
-        <div class="modes" role="radiogroup" aria-label={t('set.sec.mode')}>
+        <div class="modes" role="radiogroup" aria-label={t('set.sec.mode')} tabindex="-1" onkeydown={modeKey}>
           {#each SERVER_MODES as m (m)}
-            <button class="choice" class:on={form.mode === m} role="radio" aria-checked={form.mode === m} onclick={() => (form.mode = m)}>
+            <button class="choice" class:on={form.mode === m} role="radio" aria-checked={form.mode === m} tabindex={form.mode === m ? 0 : -1} onclick={() => (form.mode = m)}>
               <span class="radio"></span>
               <span class="grow">
                 <b>{modeLabel(m)}</b>
@@ -658,6 +676,7 @@ const modeLabel = (m: ServerMode) => t(`mode.${m}`)
     cursor: not-allowed;
     opacity: 0.45;
   }
+  .choice:focus-visible,
   .switch:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;

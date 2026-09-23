@@ -74,6 +74,7 @@ function controlRefusal(req: IncomingMessage, method: string): string {
     return 'the control API takes JSON bodies only (Content-Type: application/json)'
   return ''
 }
+
 /** A "hang" fault gives up after this long, so a forgotten client cannot hold a slot forever. */
 const HANG_LIMIT_MS = 10 * 60 * 1000
 
@@ -428,7 +429,10 @@ export class MockServer {
     return [...this.models]
   }
 
-  /** The models clients can use: the real Ollama's in proxy mode, both lists in mixed mode. */
+  /**
+   * The models clients can use: the real Ollama's in proxy mode, both lists in mixed mode
+   * (a mock-only model is answered by the mock, fallback included).
+   */
   private servedModels(): string[] {
     const up = this.upstream.info?.models ?? []
     if (this.config.mode === 'proxy') return [...up]
@@ -572,10 +576,18 @@ export class MockServer {
     return this.models.some((m) => sameModel(m, name))
   }
 
+  /** Whether the real Ollama has this model, as far as the last poll knows. */
+  private upstreamHas(name: string): boolean {
+    const info = this.upstream.info
+    return !!info?.ok && info.models.some((m) => sameModel(m, name))
+  }
+
   /** Throws 404 in strict mode for unknown models, as real Ollama does. */
   private checkModel(name: string): void {
     if (!name) throw new HttpError(400, 'model is required')
-    if (this.config.strictModels && !this.knows(name))
+    // In mixed mode a rule may answer for one of the real Ollama's models too.
+    const known = this.knows(name) || (this.config.mode === 'mixed' && this.upstreamHas(name))
+    if (this.config.strictModels && !known)
       throw new HttpError(404, `model "${name}" not found, try pulling it first`)
   }
 
@@ -783,22 +795,43 @@ export class MockServer {
         return sendJson(res, 200, this.emptyReply(api, model, 'unload'))
       }
       const cold = this.loaded.touch(model, keepAliveSec)
-      const ac = new AbortController()
-      res.on('close', () => ac.abort())
-      if (cold) await sleep(this.config.loadMs, ac.signal)
+      if (cold) await sleep(this.config.loadMs, abortOnClose(res))
       return sendJson(res, 200, this.emptyReply(api, model, 'load'))
     }
 
     const rec = this.monitor.create(api, req.method ?? 'POST', path, model, parsed.stream, raw)
     rec.promptTokens = countTokens(prompt.all)
-    const ac = new AbortController()
-    res.on('close', () => {
-      if (!res.writableFinished) ac.abort()
+    const signal = abortOnClose(res)
+    await this.inSlot(rec, res, signal, fail, 500, async () => {
+      try {
+        const planned = plan ?? this.replayPlan(parsed.prompt)
+        await this.run(api, rec, res, parsed, keepAliveSec, signal, planned)
+      } finally {
+        this.loaded.expire(model, keepAliveSec)
+      }
     })
+  }
 
+  // --- the lifecycle every recorded request shares -----------------------------------
+
+  /**
+   * Runs `work` in a scheduler slot and makes sure the record ends, whatever happens:
+   * a full queue answers 503, a client that leaves (while queued or during the work)
+   * makes it 'aborted', a thrown error answers `errorStatus` (or drops a reply already
+   * under way). `work` finishes the record itself when it succeeds; finishing twice is
+   * harmless (Monitor.finish ignores a record that has ended). The slot is always freed.
+   */
+  private async inSlot(
+    rec: RequestRecord,
+    res: ServerResponse,
+    signal: AbortSignal,
+    fail: typeof ollamaError,
+    errorStatus: number,
+    work: () => Promise<void>,
+  ): Promise<void> {
     let slot: number
     try {
-      slot = await this.scheduler.acquire(rec.id, ac.signal)
+      slot = await this.scheduler.acquire(rec.id, signal)
     } catch (e) {
       if (e instanceof QueueFullError) {
         fail(res, 503, e.message)
@@ -806,25 +839,40 @@ export class MockServer {
       } else this.monitor.finish(rec, 'aborted', 499, 'client disconnected while queued')
       return
     }
-
     try {
       rec.slot = slot
       rec.t.started = Date.now()
-      const planned = plan ?? this.replayPlan(parsed.prompt)
-      await this.run(api, rec, res, parsed, keepAliveSec, ac.signal, planned)
+      await work()
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      if (e instanceof AbortedError || ac.signal.aborted)
+      if (e instanceof AbortedError || signal.aborted)
         this.monitor.finish(rec, 'aborted', 499, 'client disconnected')
       else {
-        if (!res.headersSent) fail(res, 500, msg)
+        if (!res.headersSent) fail(res, errorStatus, msg)
         else res.destroy()
-        this.monitor.finish(rec, 'error', 500, msg)
+        this.monitor.finish(rec, 'error', errorStatus, msg)
       }
     } finally {
       this.scheduler.release(slot)
-      this.loaded.expire(model, keepAliveSec)
     }
+  }
+
+  /** The injected HTTP 500: an error reply, before any output. */
+  private injectError500(rec: RequestRecord, res: ServerResponse, fail: typeof ollamaError): void {
+    const msg = 'mock: injected internal server error'
+    fail(res, 500, msg)
+    this.monitor.finish(rec, 'error', 500, msg)
+  }
+
+  /**
+   * The injected hang: accept the request and never answer - until the client gives up
+   * (aborted) or HANG_LIMIT_MS passes (error), so a forgotten client cannot hold a slot.
+   */
+  private async injectHang(rec: RequestRecord, res: ServerResponse, signal: AbortSignal) {
+    rec.state = 'waiting'
+    await sleep(HANG_LIMIT_MS, signal)
+    res.destroy()
+    this.monitor.finish(rec, signal.aborted ? 'aborted' : 'error', 499, 'mock: injected hang')
   }
 
   private emptyReply(api: Api, model: string, reason: 'load' | 'unload') {
@@ -886,21 +934,13 @@ export class MockServer {
     rec.plannedTokens = budget
 
     if (fault === 'error500') {
+      // A short wait first, as a failing model would take a moment.
       rec.state = 'waiting'
       const waited = Math.min(jittered(Math.random, cfg.ttftMs, cfg.jitter), 1000)
       if (!(await sleep(waited, signal))) throw new AbortedError()
-      const msg = 'mock: injected internal server error'
-      fail(res, 500, msg)
-      this.monitor.finish(rec, 'error', 500, msg)
-      return
+      return this.injectError500(rec, res, fail)
     }
-    if (fault === 'hang') {
-      rec.state = 'waiting'
-      await sleep(HANG_LIMIT_MS, signal)
-      res.destroy()
-      this.monitor.finish(rec, signal.aborted ? 'aborted' : 'error', 499, 'mock: injected hang')
-      return
-    }
+    if (fault === 'hang') return this.injectHang(rec, res, signal)
 
     // Time to first token.
     rec.state = 'waiting'
@@ -1029,7 +1069,13 @@ export class MockServer {
         const replay = this.replayPlan(parsed.prompt)
         if (replay) return await this.generate(api, req, res, body, replay)
         const plan = this.engine.plan(parsed.prompt)
-        if (plan.match.source !== 'fallback') return await this.generate(api, req, res, body, plan)
+        // A mock-only model the real Ollama does not have is answered here, fallback included.
+        const mockOnly =
+          !!this.upstream.info?.ok &&
+          !this.upstreamHas(parsed.prompt.model) &&
+          this.knows(parsed.prompt.model)
+        if (plan.match.source !== 'fallback' || mockOnly)
+          return await this.generate(api, req, res, body, plan)
       }
       // Load and unload requests (an empty prompt) pass through unrecorded, as in mock mode.
       if (parsed?.empty) {
@@ -1082,110 +1128,94 @@ export class MockServer {
           0,
         )
 
-    let slot: number
-    try {
-      slot = await this.scheduler.acquire(rec.id, signal)
-    } catch (e) {
-      if (e instanceof QueueFullError) {
-        fail(res, 503, e.message)
-        this.monitor.finish(rec, 'error', 503, e.message)
-      } else this.monitor.finish(rec, 'aborted', 499, 'client disconnected while queued')
-      return
+    // An error of the proxy itself (the upstream is unreachable) answers 502 Bad Gateway.
+    await this.inSlot(rec, res, signal, fail, 502, async () => {
+      try {
+        await this.relay(api, req, res, raw, parsed, signal, rec, model)
+      } finally {
+        void this.upstream.poll()
+      }
+    })
+  }
+
+  /** The proxied request itself, in its slot: faults, forwarding, and what the record keeps. */
+  private async relay(
+    api: Api,
+    req: IncomingMessage,
+    res: ServerResponse,
+    raw: Buffer,
+    parsed: Parsed | null,
+    signal: AbortSignal,
+    rec: RequestRecord,
+    model: string,
+  ): Promise<void> {
+    const fail = api.startsWith('openai') ? openaiError : ollamaError
+    // Ollama does not say it is loading; its /api/ps tells us whether the model is in memory.
+    rec.state = this.upstream.isCold(model) ? 'loading' : 'waiting'
+    const fault = this.pickFault(null)
+    rec.fault = fault
+    if (fault === 'error500') return this.injectError500(rec, res, fail)
+    if (fault === 'hang') return this.injectHang(rec, res, signal)
+    const toolCalls: unknown[] = []
+    const chunks: string[] = []
+    const thinkingChunks: string[] = []
+    const result = await forward({
+      upstream: this.config.upstream,
+      method: req.method ?? 'POST',
+      path: forwardPath(req),
+      headers: req.headers,
+      body: raw,
+      res,
+      signal,
+      api,
+      fault,
+      onHeaders: (status) => {
+        rec.status = status
+      },
+      onPiece: (piece) => {
+        toolCalls.push(...piece.toolCalls)
+        if (piece.thinking) {
+          rec.state = 'thinking'
+          thinkingChunks.push(piece.thinking)
+          this.monitor.addTokens(rec, piece.thinking, true)
+        }
+        if (piece.content) {
+          rec.state = 'streaming'
+          chunks.push(piece.content)
+          this.monitor.addTokens(rec, piece.content, false)
+        }
+      },
+    })
+
+    const reader = result.reader
+    const stats = reader?.stats ?? null
+    if (stats) {
+      rec.reported = stats
+      rec.loadMs = stats.loadMs
+      if (stats.promptTokens) rec.promptTokens = stats.promptTokens
+      if (stats.evalTokens) this.monitor.setTokens(rec, stats.evalTokens)
+      // A reply that arrived in one piece: place the first token where Ollama says it was.
+      if (!parsed?.stream && (stats.loadMs || stats.promptMs))
+        rec.t.firstToken = Math.min(Date.now(), rec.t.started + stats.loadMs + stats.promptMs)
     }
-
-    try {
-      rec.slot = slot
-      rec.t.started = Date.now()
-      // Ollama does not say it is loading; its /api/ps tells us whether the model is in memory.
-      rec.state = this.upstream.isCold(model) ? 'loading' : 'waiting'
-      const fault = this.pickFault(null)
-      rec.fault = fault
-      if (fault === 'error500') {
-        const msg = 'mock: injected internal server error'
-        fail(res, 500, msg)
-        this.monitor.finish(rec, 'error', 500, msg)
-        return
-      }
-      if (fault === 'hang') {
-        rec.state = 'waiting'
-        await sleep(HANG_LIMIT_MS, signal)
-        res.destroy()
-        this.monitor.finish(rec, signal.aborted ? 'aborted' : 'error', 499, 'mock: injected hang')
-        return
-      }
-
-      const toolCalls: unknown[] = []
-      const chunks: string[] = []
-      const thinkingChunks: string[] = []
-      const result = await forward({
-        upstream: this.config.upstream,
-        method: req.method ?? 'POST',
-        path: forwardPath(req),
-        headers: req.headers,
-        body: raw,
-        res,
-        signal,
-        api,
-        fault,
-        onHeaders: (status) => {
-          rec.status = status
-        },
-        onPiece: (piece) => {
-          toolCalls.push(...piece.toolCalls)
-          if (piece.thinking) {
-            rec.state = 'thinking'
-            thinkingChunks.push(piece.thinking)
-            this.monitor.addTokens(rec, piece.thinking, true)
-          }
-          if (piece.content) {
-            rec.state = 'streaming'
-            chunks.push(piece.content)
-            this.monitor.addTokens(rec, piece.content, false)
-          }
-        },
-      })
-
-      const reader = result.reader
-      const stats = reader?.stats ?? null
-      if (stats) {
-        rec.reported = stats
-        rec.loadMs = stats.loadMs
-        if (stats.promptTokens) rec.promptTokens = stats.promptTokens
-        if (stats.evalTokens) this.monitor.setTokens(rec, stats.evalTokens)
-        // A reply that arrived in one piece: place the first token where Ollama says it was.
-        if (!parsed?.stream && (stats.loadMs || stats.promptMs))
-          rec.t.firstToken = Math.min(Date.now(), rec.t.started + stats.loadMs + stats.promptMs)
-      }
-      if (reader?.vectors) {
-        this.monitor.setTokens(rec, reader.vectors)
-        rec.responseText = `${reader.vectors} vector(s)`
-      }
-      if (toolCalls.length) rec.responseText += `\n[tool_calls] ${JSON.stringify(toolCalls)}`
-
-      const ok = !result.aborted && !result.faulted && !result.broken && result.status < 400
-      if (ok && this.config.record && parsed)
-        this.record(api, rec, parsed.prompt, parsed.stream, chunks, thinkingChunks, toolCalls)
-
-      if (result.aborted) this.monitor.finish(rec, 'aborted', 499, 'client disconnected')
-      else if (result.broken)
-        this.monitor.finish(rec, 'error', 502, 'the upstream reply broke off before its end')
-      else if (result.faulted)
-        this.monitor.finish(rec, 'error', result.status, `mock: injected ${fault}`)
-      else if (result.status >= 400)
-        this.monitor.finish(rec, 'error', result.status, reader?.error || `HTTP ${result.status}`)
-      else this.monitor.finish(rec, 'done', result.status)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (signal.aborted) this.monitor.finish(rec, 'aborted', 499, 'client disconnected')
-      else {
-        if (!res.headersSent) fail(res, 502, msg)
-        else res.destroy()
-        this.monitor.finish(rec, 'error', 502, msg)
-      }
-    } finally {
-      this.scheduler.release(slot)
-      void this.upstream.poll()
+    if (reader?.vectors) {
+      this.monitor.setTokens(rec, reader.vectors)
+      rec.responseText = `${reader.vectors} vector(s)`
     }
+    if (toolCalls.length) rec.responseText += `\n[tool_calls] ${JSON.stringify(toolCalls)}`
+
+    const ok = !result.aborted && !result.faulted && !result.broken && result.status < 400
+    if (ok && this.config.record && parsed)
+      this.record(api, rec, parsed.prompt, parsed.stream, chunks, thinkingChunks, toolCalls)
+
+    if (result.aborted) this.monitor.finish(rec, 'aborted', 499, 'client disconnected')
+    else if (result.broken)
+      this.monitor.finish(rec, 'error', 502, 'the upstream reply broke off before its end')
+    else if (result.faulted)
+      this.monitor.finish(rec, 'error', result.status, `mock: injected ${fault}`)
+    else if (result.status >= 400)
+      this.monitor.finish(rec, 'error', result.status, reader?.error || `HTTP ${result.status}`)
+    else this.monitor.finish(rec, 'done', result.status)
   }
 
   /** Keeps a reply of the real Ollama for playback. The first reply to an input is kept. */
@@ -1262,105 +1292,93 @@ export class MockServer {
       raw,
     )
     rec.promptTokens = inputs.reduce((n, s) => n + countTokens(s), 0)
-    const ac = new AbortController()
-    res.on('close', () => {
-      if (!res.writableFinished) ac.abort()
+    const signal = abortOnClose(res)
+    const keepAliveSec = parseKeepAlive(body.keep_alive, this.config.keepAliveSec)
+    await this.inSlot(rec, res, signal, fail, 500, async () => {
+      try {
+        await this.embedIn(kind, res, body, model, inputs, rec, keepAliveSec, signal)
+      } finally {
+        this.loaded.expire(model, keepAliveSec)
+      }
     })
-    let slot: number
-    try {
-      slot = await this.scheduler.acquire(rec.id, ac.signal)
-    } catch (e) {
-      if (e instanceof QueueFullError) {
-        fail(res, 503, e.message)
-        this.monitor.finish(rec, 'error', 503, e.message)
-      } else this.monitor.finish(rec, 'aborted', 499)
+  }
+
+  /** An embedding request in its slot: model load, faults, and the vectors. */
+  private async embedIn(
+    kind: 'embed' | 'legacy' | 'openai',
+    res: ServerResponse,
+    body: Obj,
+    model: string,
+    inputs: string[],
+    rec: RequestRecord,
+    keepAliveSec: number,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const fail = kind === 'openai' ? openaiError : ollamaError
+    const began = rec.t.started
+    let loadMs = 0
+    if (this.loaded.touch(model, Math.max(keepAliveSec, 1)) && this.config.loadMs > 0) {
+      rec.state = 'loading'
+      loadMs = jittered(Math.random, this.config.loadMs, this.config.jitter)
+      if (!(await sleep(loadMs, signal))) throw new AbortedError()
+    }
+    rec.loadMs = Math.round(loadMs)
+    const fault = this.pickFault(null)
+    rec.fault = fault
+    rec.state = 'waiting'
+    const delay = jittered(
+      Math.random,
+      Math.min(this.config.ttftMs, 80) * inputs.length ** 0.5,
+      this.config.jitter,
+    )
+    if (!(await sleep(delay, signal))) throw new AbortedError()
+    if (fault === 'hang') return this.injectHang(rec, res, signal)
+    if (fault === 'error500') return this.injectError500(rec, res, fail)
+    if (fault) {
+      // An embedding is one JSON document: a disconnect drops it, a broken one is cut short.
+      if (fault === 'disconnect') res.destroy()
+      else {
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end('{"embeddings":[[0.1,')
+      }
+      this.monitor.finish(rec, 'error', 200, `mock: injected ${fault}`)
       return
     }
-    const began = Date.now()
-    try {
-      rec.slot = slot
-      rec.t.started = began
-      const keepAliveSec = parseKeepAlive(body.keep_alive, this.config.keepAliveSec)
-      let loadMs = 0
-      if (this.loaded.touch(model, Math.max(keepAliveSec, 1)) && this.config.loadMs > 0) {
-        rec.state = 'loading'
-        loadMs = jittered(Math.random, this.config.loadMs, this.config.jitter)
-        if (!(await sleep(loadMs, ac.signal))) throw new AbortedError()
-      }
-      rec.loadMs = Math.round(loadMs)
-      const fault = this.pickFault(null)
-      rec.fault = fault
-      rec.state = 'waiting'
-      const delay = jittered(
-        Math.random,
-        Math.min(this.config.ttftMs, 80) * inputs.length ** 0.5,
-        this.config.jitter,
-      )
-      if (!(await sleep(delay, ac.signal))) throw new AbortedError()
-      if (fault === 'hang') {
-        await sleep(HANG_LIMIT_MS, ac.signal)
-        res.destroy()
-        this.monitor.finish(rec, 'aborted', 499, 'mock: injected hang')
-        return
-      }
-      if (fault) {
-        if (fault === 'disconnect') res.destroy()
-        else if (fault === 'malformed') {
-          res.writeHead(200, { 'Content-Type': 'application/json' })
-          res.end('{"embeddings":[[0.1,')
-        } else fail(res, 500, 'mock: injected internal server error')
-        this.monitor.finish(
-          rec,
-          'error',
-          fault === 'error500' ? 500 : 200,
-          `mock: injected ${fault}`,
-        )
-        return
-      }
-      const dimsReq =
-        typeof body.dimensions === 'number' && body.dimensions >= 1
-          ? Math.min(8192, Math.floor(body.dimensions))
-          : 0
-      const dim = dimsReq || this.config.embedDim
-      const vectors = inputs.map((s) => embed(s, dim, model))
-      const totalNs = (Date.now() - began) * 1e6
-      if (kind === 'legacy') sendJson(res, 200, { embedding: vectors[0] ?? [] })
-      else if (kind === 'embed')
-        sendJson(res, 200, {
-          model,
-          embeddings: vectors,
-          total_duration: totalNs,
-          load_duration: Math.round(loadMs * 1e6),
-          prompt_eval_count: rec.promptTokens,
-        })
-      else {
-        // The OpenAI SDKs ask for base64 (little-endian float32) by default.
-        const base64 = body.encoding_format === 'base64'
-        const encode = (v: number[]) => Buffer.from(new Float32Array(v).buffer).toString('base64')
-        sendJson(res, 200, {
-          object: 'list',
-          data: vectors.map((v, index) => ({
-            object: 'embedding',
-            embedding: base64 ? encode(v) : v,
-            index,
-          })),
-          model,
-          usage: { prompt_tokens: rec.promptTokens, total_tokens: rec.promptTokens },
-        })
-      }
-      rec.tokens = inputs.length
-      rec.plannedTokens = inputs.length
-      rec.responseText = `${vectors.length} vector(s) × ${dim} dims`
-      this.monitor.finish(rec, 'done', 200)
-    } catch (e) {
-      if (ac.signal.aborted) this.monitor.finish(rec, 'aborted', 499)
-      else {
-        fail(res, 500, e instanceof Error ? e.message : String(e))
-        this.monitor.finish(rec, 'error', 500, String(e))
-      }
-    } finally {
-      this.scheduler.release(slot)
+    const dimsReq =
+      typeof body.dimensions === 'number' && body.dimensions >= 1
+        ? Math.min(8192, Math.floor(body.dimensions))
+        : 0
+    const dim = dimsReq || this.config.embedDim
+    const vectors = inputs.map((s) => embed(s, dim, model))
+    const totalNs = (Date.now() - began) * 1e6
+    if (kind === 'legacy') sendJson(res, 200, { embedding: vectors[0] ?? [] })
+    else if (kind === 'embed')
+      sendJson(res, 200, {
+        model,
+        embeddings: vectors,
+        total_duration: totalNs,
+        load_duration: Math.round(loadMs * 1e6),
+        prompt_eval_count: rec.promptTokens,
+      })
+    else {
+      // The OpenAI SDKs ask for base64 (little-endian float32) by default.
+      const base64 = body.encoding_format === 'base64'
+      const encode = (v: number[]) => Buffer.from(new Float32Array(v).buffer).toString('base64')
+      sendJson(res, 200, {
+        object: 'list',
+        data: vectors.map((v, index) => ({
+          object: 'embedding',
+          embedding: base64 ? encode(v) : v,
+          index,
+        })),
+        model,
+        usage: { prompt_tokens: rec.promptTokens, total_tokens: rec.promptTokens },
+      })
     }
+    rec.tokens = inputs.length
+    rec.plannedTokens = inputs.length
+    rec.responseText = `${vectors.length} vector(s) × ${dim} dims`
+    this.monitor.finish(rec, 'done', 200)
   }
 
   // --- control plane (/_mock/*) ------------------------------------------------------

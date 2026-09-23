@@ -280,4 +280,31 @@ describe('mixed mode', () => {
       await up.server.stop()
     }
   })
+  it('makes every model in its list usable, with strict models on', async () => {
+    const up = await startServer({ models: ['up-only:7b'], strictModels: true })
+    const mixed = await startServer({
+      mode: 'mixed',
+      upstream: up.url,
+      models: ['mock-only:1b'],
+      strictModels: true,
+    })
+    try {
+      await mixed.server.upstream.poll()
+      const ollama = new Ollama({ host: mixed.url })
+      // A rule answers for the real Ollama's model too.
+      const echo = await ollama.generate({ model: 'up-only:7b', prompt: '/echo ruled' })
+      expect(echo.response).toBe('ruled')
+      // A model only the mock has is answered here even when nothing matches.
+      await ollama.generate({ model: 'mock-only:1b', prompt: 'rivers and mountains' })
+      expect((await lastRecord(mixed.server)).match?.source).toBe('fallback')
+      expect(up.server.monitor.recent()).toHaveLength(0)
+      // The rest still goes to Ollama.
+      await ollama.generate({ model: 'up-only:7b', prompt: 'rivers and mountains' })
+      expect((await lastRecord(mixed.server)).match?.source).toBe('upstream')
+      expect(up.server.monitor.recent()).toHaveLength(1)
+    } finally {
+      await mixed.server.stop()
+      await up.server.stop()
+    }
+  })
 })

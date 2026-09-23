@@ -345,6 +345,72 @@ describe('scheduling, timing and faults', () => {
     }
   })
 
+  it('ends every request the same way on each path (chat, embeddings, proxy)', async () => {
+    const { server, url } = await startServer({ numParallel: 1, maxQueue: 0, ttftMs: 300 })
+    const proxy = await startServer({
+      mode: 'proxy',
+      upstream: `${url}/v1`,
+      numParallel: 1,
+      maxQueue: 0,
+    })
+    const post = (base: string, path: string, body: unknown, signal: AbortSignal | null = null) =>
+      fetch(`${base}${path}`, { method: 'POST', body: JSON.stringify(body), signal })
+        .then((r) => r.status)
+        .catch(() => 0)
+    const last = (s: MockServer) => s.monitor.recent().at(-1)
+    const settle = () => new Promise((r) => setTimeout(r, 80))
+    try {
+      // A full queue answers 503 on every kind of request.
+      for (const [path, body] of [
+        ['/api/generate', { model: 'm', prompt: 'hi', stream: false }],
+        ['/api/embed', { model: 'e', input: 'hi' }],
+      ] as const) {
+        const first = post(url, path, body)
+        await new Promise((r) => setTimeout(r, 30))
+        expect(await post(url, path, body)).toBe(503)
+        await first
+      }
+      const through = post(proxy.url, '/api/generate', { model: 'm', prompt: 'hi', stream: false })
+      await new Promise((r) => setTimeout(r, 30))
+      expect(
+        await post(proxy.url, '/api/generate', { model: 'm', prompt: 'x', stream: false }),
+      ).toBe(503)
+      await through
+
+      // A hang the client gives up on is 'aborted', on the chat path and the embeddings path.
+      for (const [path, body] of [
+        ['/api/generate', { model: 'm', prompt: 'hi' }],
+        ['/api/embed', { model: 'e', input: 'hi' }],
+      ] as const) {
+        server.injectFault('hang')
+        const ac = new AbortController()
+        const p = post(url, path, body, ac.signal)
+        await new Promise((r) => setTimeout(r, 400))
+        ac.abort()
+        await p
+        await settle()
+        expect(last(server)).toMatchObject({ state: 'aborted', fault: 'hang' })
+      }
+
+      // The injected 500 reads the same on every path.
+      server.injectFault('error500')
+      expect(await post(url, '/api/embed', { model: 'e', input: 'hi' })).toBe(500)
+      expect(last(server)?.error).toBe('mock: injected internal server error')
+
+      // keep_alive 0 unloads an embedding model too.
+      await post(url, '/api/embed', { model: 'e:1', input: 'hi', keep_alive: 0 })
+      const ps = (await (await fetch(`${url}/api/ps`)).json()) as { models: { name: string }[] }
+      expect(ps.models.map((m) => m.name)).not.toContain('e:1')
+
+      expect(server.monitor.active.size).toBe(0)
+      expect(proxy.server.monitor.active.size).toBe(0)
+      expect(server.snapshot(false).slots.every((s) => s.requestId === null)).toBe(true)
+    } finally {
+      await proxy.server.stop()
+      await server.stop()
+    }
+  })
+
   it('keeps inputs within bounds', async () => {
     const { server, url } = await startServer()
     try {

@@ -59,9 +59,18 @@ const QUICK = [
 
 const models = $derived(store.snapshot?.models ?? store.config?.models ?? [])
 const mode = $derived(store.config?.mode ?? 'mock')
+/** "llama3.2" and "llama3.2:latest" are the same model, as in Ollama. */
+const norm = (n: string) => (n.trim().includes(':') ? n.trim() : `${n.trim()}:latest`)
+/** In mixed mode the mock answers a model only it has, even with nothing matching. */
+const mockOnly = $derived.by(() => {
+  const up = store.snapshot?.upstream
+  const own = store.config?.models ?? []
+  const m = norm(model)
+  return !!up?.ok && !up.models.some((x) => norm(x) === m) && own.some((x) => norm(x) === m)
+})
 /** Proxy mode, or mixed mode with nothing matching: the real Ollama answers. */
 const toOllama = $derived(
-  mode === 'proxy' || (mode === 'mixed' && preview?.match.source === 'fallback'),
+  mode === 'proxy' || (mode === 'mixed' && preview?.match.source === 'fallback' && !mockOnly),
 )
 
 $effect(() => {
