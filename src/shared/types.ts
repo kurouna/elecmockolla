@@ -171,6 +171,20 @@ export interface Recording {
   source: string
 }
 
+/**
+ * A recording as the UI lists it: without the conversation and the reply, which can be
+ * long and add up over thousands of recordings. The whole one is fetched when shown.
+ */
+export type RecordingSummary = Pick<
+  Recording,
+  'id' | 'model' | 'api' | 'prompt' | 'ttftMs' | 'tps' | 'recordedAt' | 'source'
+> & {
+  /** How many content chunks the reply has. */
+  chunks: number
+  /** The start of the reply, for the list and its search. */
+  preview: string
+}
+
 export interface RecordingsFile {
   version: 1
   recordings: Recording[]

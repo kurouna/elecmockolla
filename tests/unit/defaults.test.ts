@@ -6,6 +6,7 @@ import {
   parseRules,
   takeDefaults,
 } from '../../src/core/rules.ts'
+import { fingerprint } from '../../src/core/rules-merge.ts'
 import type { Rule, RulesFile } from '../../src/shared/types.ts'
 
 const rule = (id: string): Rule => ({
@@ -66,6 +67,34 @@ describe('new built-in rules for an existing rules file', () => {
     const d = defaultRules()
     const deleted = { ...d, rules: d.rules.filter((r) => r.id !== 'joke-en') }
     expect(missingDefaults(deleted).rules).toEqual([])
+  })
+
+  it('updates a built-in rule the user never edited, and leaves an edited one alone', () => {
+    // weather-tool as v0.0.1 shipped it: 明日の天気 read 明日 as a city.
+    const d = normalizeRules(defaultRules())
+    const old = structuredClone(d)
+    const tool = old.rules.find((r) => r.id === 'weather-tool')
+    if (!tool) throw new Error('no weather-tool')
+    tool.match.pattern = String.raw`^[^\n]*?(?:weather in ([A-Za-z ]+))|^[^\n]*?(?:(\S+?)の天気)`
+    tool.enabled = false
+    const latest = d.rules.find((r) => r.id === 'weather-tool')
+    expect(latest && fingerprint(latest)).not.toBe(fingerprint(tool))
+
+    const offer = missingDefaults(old, d)
+    expect(offer.updated.map((r) => r.id)).toEqual(['weather-tool'])
+    const merged = takeDefaults(old, true, d)
+    const now = merged.rules.find((r) => r.id === 'weather-tool')
+    expect(now?.match.pattern).toContain('今日|きょう|明日')
+    expect(now?.enabled).toBe(false)
+    expect(merged.rules.map((r) => r.id)).toEqual(old.rules.map((r) => r.id))
+    expect(missingDefaults(merged, d).updated).toEqual([])
+
+    // Declining is remembered; an edited copy is never offered an update.
+    expect(missingDefaults(takeDefaults(old, false, d), d).updated).toEqual([])
+    const edited = structuredClone(old)
+    const mine = edited.rules.find((r) => r.id === 'weather-tool')
+    if (mine) mine.response.text = '{"city": "$1$2"}'
+    expect(missingDefaults(edited, d).updated).toEqual([])
   })
 
   it('offers what a later version adds, even to a file that took the earlier ones', () => {

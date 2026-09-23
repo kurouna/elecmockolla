@@ -9,9 +9,12 @@ import type {
   Rule,
   RulesFile,
 } from '../shared/types.ts'
+import { FAULT_MODES } from './config.ts'
 import { chatRules, elecRules } from './default-rules.ts'
+import { defaultIds, missingFrom, type Offer, takeFrom } from './rules-merge.ts'
 
-export const FAULT_MODES: readonly FaultMode[] = ['error500', 'disconnect', 'hang', 'malformed']
+export { FAULT_MODES }
+
 const MATCH_KINDS: readonly MatchKind[] = ['regex', 'contains', 'always']
 const TARGETS: readonly MatchTarget[] = ['last', 'all', 'system']
 const RESPONSE_KINDS: readonly ResponseKind[] = ['template', 'lorem', 'json', 'echo', 'tool']
@@ -138,53 +141,16 @@ export function defaultRules(): RulesFile {
   return { ...rules, seenDefaults: defaultIds(rules) }
 }
 
-const defaultIds = (r: RulesFile): string[] => [
-  ...r.rules.map((x) => x.id),
-  ...r.keywords.map((k) => k.id),
-]
-
 /** Built-in rules and keywords a rules file has not been offered yet. */
-export function missingDefaults(
-  current: RulesFile,
-  defaults: RulesFile = defaultRules(),
-): { rules: Rule[]; keywords: KeywordEntry[] } {
-  const seen = new Set(current.seenDefaults ?? defaultIds(current))
-  for (const id of defaultIds(current)) seen.add(id)
-  return {
-    rules: defaults.rules.filter((r) => !seen.has(r.id)),
-    keywords: defaults.keywords.filter((k) => !seen.has(k.id)),
-  }
-}
+export const missingDefaults = (current: RulesFile, defaults: RulesFile = defaultRules()): Offer =>
+  missingFrom(current, defaults)
 
-/**
- * Offers the new built-in rules to a rules file: with `add`, they are put where they
- * stand among the defaults (after the nearest default before them that the file has,
- * else first), so the order still makes sense; without, they are only marked as seen.
- * Either way the user's own rules and edits stay as they are.
- */
-export function takeDefaults(
+/** {@link takeFrom} against the built-in rules. */
+export const takeDefaults = (
   current: RulesFile,
   add: boolean,
   defaults: RulesFile = defaultRules(),
-): RulesFile {
-  const missing = missingDefaults(current, defaults)
-  const rules = [...current.rules]
-  if (add)
-    for (const rule of missing.rules) {
-      const at = defaults.rules.indexOf(rule)
-      let after = -1
-      for (let i = at - 1; i >= 0 && after < 0; i--) {
-        const id = defaults.rules[i]?.id
-        after = rules.findIndex((r) => r.id === id)
-      }
-      rules.splice(after + 1, 0, structuredClone(rule))
-    }
-  const keywords = add
-    ? [...current.keywords, ...missing.keywords.map((k) => ({ ...k }))]
-    : [...current.keywords]
-  const seen = new Set([...(current.seenDefaults ?? defaultIds(current)), ...defaultIds(defaults)])
-  return { ...current, rules, keywords, seenDefaults: [...seen] }
-}
+): RulesFile => takeFrom(current, add, defaults)
 
 // --- validation -------------------------------------------------------------
 

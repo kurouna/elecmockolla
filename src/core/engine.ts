@@ -127,8 +127,28 @@ export function renderTemplate(tpl: string, ctx: Ctx): string {
   )
 }
 
+/**
+ * Compiled patterns, per rule object. Rules are replaced, never edited in place (a new
+ * rules file is new objects), so an entry lives exactly as long as its rule and every
+ * request reuses the RegExp instead of compiling each pattern again.
+ */
+const compiled = new WeakMap<Rule, { re?: RegExp; model?: RegExp }>()
+
+function patterns(rule: Rule): { re?: RegExp; model?: RegExp } {
+  let c = compiled.get(rule)
+  if (!c) {
+    c = {}
+    if (rule.match.model) c.model = new RegExp(rule.match.model, 'i')
+    if (rule.match.kind === 'regex')
+      c.re = new RegExp(rule.match.pattern, (rule.match.flags ?? '').replace('g', ''))
+    compiled.set(rule, c)
+  }
+  return c
+}
+
 function matchRule(rule: Rule, p: Prompt): RegExpExecArray | null | false {
-  if (rule.match.model && !new RegExp(rule.match.model, 'i').test(p.model)) return false
+  const c = patterns(rule)
+  if (c.model && !c.model.test(p.model)) return false
   const target = rule.match.target ?? 'last'
   const hay = target === 'all' ? p.all : target === 'system' ? p.system : p.last
   switch (rule.match.kind) {
@@ -144,8 +164,10 @@ function matchRule(rule: Rule, p: Prompt): RegExpExecArray | null | false {
         : false
     }
     case 'regex': {
-      const re = new RegExp(rule.match.pattern, (rule.match.flags ?? '').replace('g', ''))
-      return re.exec(hay) ?? false
+      if (!c.re) return false
+      // A shared RegExp with the sticky flag keeps its position; every match starts over.
+      c.re.lastIndex = 0
+      return c.re.exec(hay) ?? false
     }
   }
 }

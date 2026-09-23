@@ -193,11 +193,13 @@ search for `elec`, then **Turn these on**.
 
 The tester above the list tries a prompt against the rules being edited, before they are saved,
 and marks the rule that answers. The rule list can be searched (name, id, pattern, reply) and
-filtered by on / off. When a newer
-version brings new built-in rules, the **Rules** page offers them — **Add** puts them in place
-among the others, **Don't add** stops offering them — and your own rules and edits are left as
-they are. Rules you deleted are not brought back (`rules.json` remembers the built-in rules it has
-seen in `seenDefaults`).
+filtered by on / off.
+
+When a newer version brings new or improved built-in rules, the **Rules** page offers them —
+**Take them** puts new rules in place among the others and replaces a built-in rule you never
+edited with its new version (keeping it on or off); **Don't take** stops offering them. Rules you
+wrote or edited are left as they are, and rules you deleted are not brought back (`rules.json`
+remembers what it has been offered in `seenDefaults`).
 
 Patterns are JavaScript regular expressions and run as written. A pattern with catastrophic
 backtracking (such as `(a+)+$`) can take seconds or longer on some prompts, and while it runs the

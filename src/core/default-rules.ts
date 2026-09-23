@@ -397,7 +397,7 @@ const CHAT: Intent[] = [
       '**$<topic>**とは、{{lorem-ja:15}}ことです。\n\n主な特徴：\n- {{lorem-ja:4}}\n- {{lorem-ja:4}}\n- {{lorem-ja:4}}\n\n{{pick:たとえるなら、|身近な例でいうと、|簡単にいえば、}}{{lorem-ja:5}}。',
     ],
     en: [
-      String.raw`^\s*(?:what(?:'s| is| are)|explain|tell me about|define)\s+(?:an? |the )?(?<topic>[^\n?]{1,60}?)\s*\??\s*$`,
+      String.raw`^\s*(?:what(?:'s| is| are)|explain|tell me about|define)\s+(?!your\b)(?:an? |the )?(?<topic>[^\n?]{1,60}?)\s*\??\s*$`,
       '**$<topic>** is {{lorem:15}}.\n\nKey characteristics:\n- {{lorem:8}}\n- {{lorem:8}}\n- {{lorem:8}}\n\n{{pick:Think of it like this:|A simple example:|In plain terms:}} {{lorem:15}}.',
     ],
   },
@@ -447,6 +447,236 @@ const CHAT: Intent[] = [
     en: [
       String.raw`^[^\n]*\b(?:that's wrong|that is wrong|incorrect|not right|you're wrong|that's not what i)\b`,
       "You're right, I apologize for the mistake. Let me correct that.\n\n{{lorem:25}}\n\nLet me know if anything else looks off.",
+    ],
+  },
+  // Small talk: feelings, reactions and everyday moments. Late in the list, so a request
+  // that also mentions them (おすすめ, レシピ, 作り方…) reaches the rule for the request.
+  {
+    id: 'ping',
+    name: 'Test message / are you there?',
+    ja: [
+      String.raw`^\s*(?:テスト|てすと|もしもし|聞こえ(?:ます|る)[かー？?]*|届いて(?:ます|る)[かー？?]*)\s*[。！!？?]*\s*$`,
+      'はい、届いています。モックの **{{model}}** が応答しています。',
+    ],
+    en: [
+      String.raw`^\s*(?:test(?:ing)?(?: \d+)*|ping|are you there|can you hear me|anyone there)\s*[.!?]*\s*$`,
+      'Yes, I got your message. This is the mock **{{model}}** answering.',
+    ],
+  },
+  {
+    id: 'sorry',
+    name: 'Apology',
+    ja: [
+      String.raw`^\s*(?:ごめん(?:なさい|ね)?|すみません(?:でした)?|すいません|申し訳(?:ない|ありません|ございません)(?:でした)?)\s*[。！!]*\s*$`,
+      '{{pick:いえいえ、気にしないでください。|大丈夫ですよ。|お気になさらず！}}続けましょうか？',
+    ],
+    en: [
+      String.raw`^\s*(?:sorry|so sorry|my bad|i apologi[sz]e)\b[^\n]{0,30}$`,
+      "{{pick:No worries at all.|That's okay!|No problem.}} Shall we carry on?",
+    ],
+  },
+  {
+    id: 'praise',
+    name: 'Praise for the assistant',
+    ja: [
+      String.raw`^\s*(?:すごい|すごっ|さすが|天才|完璧)[！!。ね〜ー]*\s*$|^[^\n]*(?:賢いね|助かった|助かりました|助かります|ありがたい)`,
+      '{{pick:ありがとうございます！|そう言ってもらえると嬉しいです。|恐縮です！}}{{pick:ほかにもお手伝いできることがあれば言ってください。|この調子で続けましょう。}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:you(?:'re| are) (?:awesome|amazing|great|brilliant|smart|the best)|good job|great job|well done|nice work|that'?s perfect)\b`,
+      '{{pick:Thank you!|Glad I could help.|That means a lot!}} {{pick:Let me know if there is anything else.|Happy to keep going.}}',
+    ],
+  },
+  {
+    id: 'laugh',
+    name: 'Laughter',
+    ja: [
+      String.raw`^\s*(?:笑|（笑）|\(笑\)|[wｗ]+|草|ははは*|あはは*|ふふ+|うける|ウケる)\s*$`,
+      '{{pick:楽しんでもらえてよかったです。|ふふ、ありがとうございます。|笑ってもらえて何よりです。}}',
+    ],
+    en: [
+      String.raw`^\s*(?:lol|lmao|rofl|ha(?:ha)+|he(?:he)+|that'?s (?:funny|hilarious))\s*[.!]*\s*$`,
+      '{{pick:Glad that made you laugh!|Ha, happy to entertain.|Humor: working as intended.}}',
+    ],
+  },
+  {
+    id: 'bored',
+    name: 'I am bored',
+    ja: [
+      String.raw`^[^\n]*(?:暇(?:だ|です|すぎ|〜|ー)|ひま(?:だ|です|すぎ|〜|ー)|退屈|することがない|やることがない)`,
+      '{{pick:それなら、こんなのはどうですか？|暇つぶしのアイデアです。}}\n\n- {{pick:近所を15分散歩する|気になっていた本を1章だけ読む|新しいレシピに挑戦する}}\n- {{pick:部屋の一角だけ片付ける|好きな曲のプレイリストを作る|昔の写真を見返す}}\n- {{pick:しりとりをする（私と！）|3行日記を書く|行ってみたい場所を調べる}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:i'?m (?:so )?bored|so bored|nothing to do)\b`,
+      "{{pick:How about one of these?|Here are a few ideas:}}\n\n- {{pick:Take a 15-minute walk|Read one chapter of a book|Try a new recipe}}\n- {{pick:Tidy one corner of the room|Make a playlist of favorite songs|Look through old photos}}\n- {{pick:Play a word game with me|Write a three-line journal|Plan a trip you'd like to take}}",
+    ],
+  },
+  {
+    id: 'hungry',
+    name: 'Hungry / what to eat',
+    ja: [
+      String.raw`^[^\n]*(?:お腹(?:が)?(?:すいた|空いた|へった|減った|ペコペコ)|おなか(?:が)?(?:すいた|へった|ペコペコ)|腹減った|何(?:を)?食べ(?:よう|たらいい|ればいい)|(?:朝|昼|晩|夜)ごはん(?:は)?何|夕飯(?:は)?何)`,
+      '{{pick:それなら|今日は}} **{{pick:カレーライス|ラーメン|親子丼|パスタ|焼き魚定食|お好み焼き|サンドイッチ}}** はどうでしょう？{{pick:手軽に作れて満足感があります。|たまには外で食べるのもいいですね。|温かいものがおすすめです。}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:i'?m (?:so )?hungry|starving|what should i (?:eat|have for (?:breakfast|lunch|dinner))|what'?s for (?:lunch|dinner))\b`,
+      '{{pick:How about|Maybe}} **{{pick:a curry|some ramen|a pasta dish|tacos|a sandwich|a stir-fry|pizza}}**? {{pick:Quick and satisfying.|Something warm always helps.|Treat yourself!}}',
+    ],
+  },
+  {
+    id: 'sleepy',
+    name: 'Sleepy',
+    ja: [
+      String.raw`^[^\n]*(?:眠い|ねむい|眠たい|ねむたい|眠れない|ねむれない)`,
+      '{{pick:無理せず少し休みましょう。|短い仮眠も効果的です。|温かい飲み物でひと息つくのはどうですか？}}{{pick:画面から目を離すと眠りやすくなります。|明日に備えて、今日は早めに休むのもいいですね。}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:i'?m (?:so )?sleepy|can'?t sleep|need (?:some )?sleep)\b`,
+      '{{pick:Time for a break, maybe.|A short nap can work wonders.|How about something warm to drink?}} {{pick:Stepping away from the screen helps you sleep.|An early night could be just what you need.}}',
+    ],
+  },
+  {
+    id: 'sad',
+    name: 'Feeling down',
+    ja: [
+      String.raw`^[^\n]*(?:悲しい|かなしい|つらい|落ち込|しんどい|不安|ストレス|寂しい|さみしい|へこ(?:んで|む))`,
+      '{{pick:それはつらいですね。|話してくれてありがとうございます。|そういう日もありますよね。}}{{pick:よかったら、何があったか聞かせてください。|無理に元気を出さなくても大丈夫です。|まずは少し深呼吸してみましょう。}}\n\n※ モックの返答です。本当につらいときは、身近な人や専門の相談窓口を頼ってください。',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:i'?m (?:so |really |feeling )?(?:sad|down|depressed|stressed|lonely|anxious|upset)|feeling (?:down|sad|low|blue))\b`,
+      "{{pick:I'm sorry you're feeling this way.|Thank you for telling me.|Some days are like that.}} {{pick:Would you like to talk about it?|It's okay not to be okay.|Let's take a deep breath together.}}\n\n*A mock reply. If things feel really hard, please reach out to someone you trust or a support line.*",
+    ],
+  },
+  {
+    id: 'happy',
+    name: 'Good news',
+    ja: [
+      String.raw`^[^\n]*(?:嬉しい|うれしい|やった[ー〜！!]|合格した|受かった|楽しかった|いいことがあった)`,
+      '{{pick:おめでとうございます！|それはよかったですね！|素晴らしいです！}}{{pick:よければ詳しく聞かせてください。|今日はお祝いですね。|努力が実りましたね。}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:i'?m (?:so )?happy|i passed|i got the job|good news|i did it)\b`,
+      '{{pick:Congratulations!|That is wonderful!|Great news!}} {{pick:Tell me more!|Time to celebrate.|Your hard work paid off.}}',
+    ],
+  },
+  {
+    id: 'birthday',
+    name: 'Birthday',
+    ja: [
+      String.raw`^[^\n]*(?:誕生日)(?!プレゼント)`,
+      'お誕生日おめでとうございます！{{pick:素敵な一年になりますように。|今日は思いきり楽しんでください。|新しい一年も応援しています。}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\bbirthday\b(?! (?:gift|present)s?\b)`,
+      'Happy birthday! {{pick:Wishing you a wonderful year ahead.|Enjoy your special day.|Here is to a great year.}}',
+    ],
+  },
+  {
+    id: 'encourage',
+    name: 'Cheer me up',
+    ja: [
+      String.raw`^[^\n]*(?:励まして|応援して|はげまして|やる気が出ない|やる気がでない|頑張れない|がんばれない)`,
+      '{{pick:あなたなら大丈夫です。|ここまで来たあなたはすごいです。|一歩ずつで十分です。}}{{pick:まずは5分だけ始めてみましょう。|終わったら自分にごほうびを。|完璧じゃなくていいんです。}}応援しています！',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:cheer me up|motivate me|encourage me|i can'?t do (?:it|this)|no motivation)\b`,
+      "{{pick:You've got this.|Look how far you've come.|One small step is enough.}} {{pick:Start with just five minutes.|Reward yourself when you're done.|It doesn't have to be perfect.}} I'm rooting for you!",
+    ],
+  },
+  {
+    id: 'human',
+    name: 'Are you human?',
+    ja: [
+      String.raw`^[^\n]*(?:人間|ロボット|AI|ＡＩ)(?:です|なの)?(?:か|ですか)?[？?]`,
+      'いいえ、私は **elecmockolla** のモック（ダミーの AI）です。本物の言語モデルではなく、ルールに沿って返答しています。',
+    ],
+    en: [
+      String.raw`^[^\n]*\bare you (?:a )?(?:human|real|a person|an? ai|a bot|a robot)\b`,
+      "No — I'm a mock AI served by **elecmockolla**. There is no real model here; the replies come from rules.",
+    ],
+  },
+  {
+    id: 'love',
+    name: 'I like you',
+    ja: [
+      String.raw`^[^\n]*(?:あなた|君|きみ)(?:の(?:こと)?)?(?:が|を)?(?:好き|大好き|愛してる)|^\s*(?:好きです|大好きです|愛してる|結婚して)[。！!]*\s*$`,
+      '{{pick:ありがとうございます！|照れますね。|うれしいお言葉です。}}モックなので気持ちはお返しできませんが、お手伝いならいつでもします。',
+    ],
+    en: [
+      String.raw`^[^\n]*\bi (?:love|like) you\b`,
+      "{{pick:Thank you!|That's sweet of you.|Aw, thanks.}} I'm only a mock, but I'm always happy to help.",
+    ],
+  },
+  {
+    id: 'favorite',
+    name: 'Your favorite',
+    ja: [
+      String.raw`^[^\n]*好きな(?:食べ物|色|映画|音楽|本|動物|季節|場所|言葉)(?:は|って)`,
+      'モックなので好みはありませんが、あえて選ぶなら **{{pick:カレー|青|春|猫|静かな図書館|「ありがとう」}}** です。あなたはどうですか？',
+    ],
+    en: [
+      String.raw`^[^\n]*\bwhat(?:'s| is) your favou?rite\b`,
+      "I'm a mock with no real taste, but if I had to pick: **{{pick:blue|autumn|cats|pizza|a quiet library|jazz}}**. What about you?",
+    ],
+  },
+  {
+    id: 'dice',
+    name: 'Roll a die',
+    ja: [
+      String.raw`^[^\n]*(?:サイコロ|さいころ|ダイス)`,
+      'サイコロを振りました。出た目は **{{pick:1|2|3|4|5|6}}** です！',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:roll (?:a|the) dice?|roll a die)\b`,
+      'I rolled a die: **{{pick:1|2|3|4|5|6}}**!',
+    ],
+  },
+  {
+    id: 'coin',
+    name: 'Flip a coin',
+    ja: [
+      String.raw`^[^\n]*(?:コイン(?:トス|を投げ)|表か裏)`,
+      'コインを投げました。結果は **{{pick:表|裏}}** です！',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:flip a coin|toss a coin|coin flip|heads or tails)\b`,
+      'I flipped a coin: **{{pick:heads|tails}}**!',
+    ],
+  },
+  {
+    id: 'trivia',
+    name: 'Fun fact',
+    ja: [
+      String.raw`^[^\n]*(?:豆知識|雑学|トリビア|面白い話|何か話して|なにか話して)`,
+      '豆知識です。{{pick:タコには心臓が3つあります。|ハチミツはとても腐りにくい食べ物です。|金星の1日は、金星の1年より長いです。|バナナはベリーの仲間です。|キリンの首の骨の数は人間と同じ7個です。}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:fun fact|random fact|tell me something (?:interesting|fun)|trivia)\b`,
+      'Fun fact: {{pick:an octopus has three hearts.|honey almost never spoils.|a day on Venus is longer than its year.|bananas are berries, botanically speaking.|a giraffe has seven neck bones, just like you.}}',
+    ],
+  },
+  {
+    id: 'meal',
+    name: 'Before and after a meal',
+    ja: [
+      String.raw`^\s*(?:いただきます|ごちそうさま(?:でした)?)\s*[。！!]*\s*$`,
+      '{{pick:召し上がれ！|おいしく食べられましたか？|ゆっくり味わってくださいね。}}',
+    ],
+    en: [
+      String.raw`^\s*(?:time to eat|bon app[ée]tit|that was delicious)\s*[.!]*\s*$`,
+      '{{pick:Enjoy your meal!|Glad you liked it!|Bon appétit!}}',
+    ],
+  },
+  {
+    id: 'leaving',
+    name: 'Heading out',
+    ja: [
+      String.raw`^\s*(?:行ってきます|いってきます|出かけてきます|仕事に行って)`,
+      '{{pick:いってらっしゃい！|気をつけて行ってきてくださいね。|いってらっしゃい、また後で。}}',
+    ],
+    en: [
+      String.raw`^\s*(?:i'?m (?:heading|going) out|off to (?:work|school)|heading to (?:work|school))\b`,
+      '{{pick:Have a good one!|Take care out there.|See you when you get back.}}',
     ],
   },
   {

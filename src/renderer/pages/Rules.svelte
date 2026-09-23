@@ -1,6 +1,6 @@
 <script lang="ts">
 import { onMount } from 'svelte'
-import { missingDefaults, takeDefaults } from '../../core/rules.ts'
+import { missingFrom, takeFrom } from '../../core/rules-merge.ts'
 import type { FaultMode, Rule, RulesFile, TestResult } from '../../shared/types.ts'
 import Icon from '../components/Icon.svelte'
 import Recordings from '../components/Recordings.svelte'
@@ -60,19 +60,19 @@ const kwShown = $derived.by(() => {
     : draft.keywords
 })
 
-// --- built-in rules added in a newer version, not yet offered to this file
+// --- built-in rules added or updated in a newer version, not yet offered to this file
 let defaults = $state.raw<RulesFile | null>(null)
 void api.defaultRules().then((d) => {
   defaults = d
 })
-const offer = $derived(
-  defaults ? missingDefaults($state.snapshot(draft) as RulesFile, defaults) : null,
+const offer = $derived(defaults ? missingFrom($state.snapshot(draft) as RulesFile, defaults) : null)
+const offerCount = $derived(
+  offer ? offer.rules.length + offer.keywords.length + offer.updated.length : 0,
 )
-const offerCount = $derived(offer ? offer.rules.length + offer.keywords.length : 0)
 function takeOffer(add: boolean) {
   if (!defaults) return
   const n = offerCount
-  draft = takeDefaults($state.snapshot(draft) as RulesFile, add, defaults)
+  draft = takeFrom($state.snapshot(draft) as RulesFile, add, defaults)
   store.flash(add ? t('rules.newAdded', { n }) : t('rules.newSkipped'), 'info')
 }
 
@@ -231,7 +231,7 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
     <div class="note offer">
       <span class="grow">
         {t('rules.newOffer', { n: offerCount })}
-        <span class="names">{[...offer.rules.map((r) => r.name), ...offer.keywords.map((k) => `"${k.keyword}"`)].join(', ')}</span>
+        <span class="names">{[...offer.updated.map((r) => t('rules.updatedName', { name: r.name })), ...offer.rules.map((r) => r.name), ...offer.keywords.map((k) => `"${k.keyword}"`)].join(', ')}</span>
       </span>
       <button class="btn sm primary" onclick={() => takeOffer(true)}><Icon name="plus" size={12} />{t('rules.newAdd')}</button>
       <button class="btn sm ghost" onclick={() => takeOffer(false)}>{t('rules.newSkip')}</button>

@@ -33,7 +33,14 @@ import type {
   SaveResult,
 } from '../shared/api.ts'
 import { CH } from '../shared/channels.ts'
-import type { ExportFormat, FaultMode, MockConfig, Recording, RulesFile } from '../shared/types.ts'
+import type {
+  ExportFormat,
+  FaultMode,
+  MockConfig,
+  Recording,
+  RecordingSummary,
+  RulesFile,
+} from '../shared/types.ts'
 import { capturePages } from './capture.ts'
 import { LoadGenerator, Playground } from './client.ts'
 import { ServerHost } from './host.ts'
@@ -108,6 +115,35 @@ function saveRecordingsSoon(): void {
 }
 
 const notice = () => [rulesError, recordingsError].filter(Boolean).join(' / ')
+
+const PREVIEW = 160
+/** What the UI lists: no conversation, no chunks (see RecordingSummary). */
+const summarize = (r: Recording): RecordingSummary => ({
+  id: r.id,
+  model: r.model,
+  api: r.api,
+  prompt: r.prompt.slice(0, PREVIEW * 2),
+  ttftMs: r.ttftMs,
+  tps: r.tps,
+  recordedAt: r.recordedAt,
+  source: r.source,
+  chunks: r.chunks.length,
+  preview: r.chunks.join('').slice(0, PREVIEW),
+})
+const summaries = () => recordings.map(summarize)
+
+let pushTimer: NodeJS.Timeout | undefined
+/**
+ * Sends the recordings list to the UI at most twice a second: while a load test records
+ * reply after reply, each one would otherwise send the whole list again.
+ */
+function pushRecordingsSoon(): void {
+  if (pushTimer) return
+  pushTimer = setTimeout(() => {
+    pushTimer = undefined
+    send(CH.recordings, summaries())
+  }, 500)
+}
 
 function loadFromDisk(): void {
   const loaded = loadConfig(ENV_PATH, process.env)
@@ -211,7 +247,7 @@ async function applyConfig(next: MockConfig): Promise<SaveResult<MockConfig>> {
       recordingsError = ''
       recordingStore = new RecordingStore(recordings)
       host.setRecordings(recordings)
-      send(CH.recordings, recordings)
+      send(CH.recordings, summaries())
     }
     if (host.running && needsRestart) {
       await host.stop()
@@ -238,7 +274,7 @@ function registerIpc(): void {
       recordingsPath,
       config,
       rules,
-      recordings,
+      recordings: summaries(),
       presets: [...PRESETS],
       history: host.history,
       snapshot: host.snapshot,
@@ -271,17 +307,22 @@ function registerIpc(): void {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }
     }
   })
-  handle(CH.defaultRules, () => defaultRules())
+  // Normalized like a file read from disk, so an untouched built-in rule compares equal.
+  handle(CH.defaultRules, () => normalizeRules(defaultRules()))
   handle(CH.deleteRecordings, (_e, ids) => {
     if (ids === 'all') recordings = []
     else if (Array.isArray(ids)) {
       const drop = new Set(ids.filter((x): x is string => typeof x === 'string'))
       recordings = recordings.filter((r) => !drop.has(r.id))
-    } else return recordings
+    } else return summaries()
     recordingStore = new RecordingStore(recordings)
     host.setRecordings(recordings)
     saveRecordingsSoon()
-    return recordings
+    return summaries()
+  })
+  handle(CH.getRecording, (_e, id) => {
+    if (typeof id !== 'string') return null
+    return recordings.find((r) => r.id === id) ?? null
   })
   handle(CH.testRules, (_e, input, draft) => {
     const i = isObj(input) ? input : {}
@@ -464,12 +505,13 @@ app.whenReady().then(async () => {
       readRecordings()
       if (recordingsError) return
       host.setRecordings(recordings)
-      send(CH.recordings, recordings)
+      send(CH.recordings, summaries())
     }
     if (!recordingStore.add(r)) return
-    recordings = [...recordings, r]
+    // In place: main owns the array, and the UI only ever gets summaries of it.
+    recordings.push(r)
     saveRecordingsSoon()
-    send(CH.recordings, recordings)
+    pushRecordingsSoon()
   })
   registerIpc()
   createWindow()

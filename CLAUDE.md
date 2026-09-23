@@ -57,5 +57,11 @@ tests/e2e/     Playwright + Electron; each spec starts the app with its own fold
 - **Two languages**: every UI string goes through `t()` (`renderer/lib/i18n.svelte.ts`); add
   the key to `locales/en.ts` and `locales/ja.ts` (the typecheck enforces both). `code` and
   **bold** in a string need `<Rich>`. Server, CLI and `.env` comments stay English.
+- **Built-in rules reach existing files through the Rules page offer** (`core/rules-merge.ts`):
+  a new id is offered as new; a changed built-in rule is offered as an update only to files
+  that still hold an earlier version unedited. After changing a built-in rule, commit, then run
+  `npm run gen:earlier-defaults` (it reads the git history) and commit
+  `core/earlier-defaults.ts`. The renderer must not import `core/rules.ts` (it would bundle
+  every built-in rule); it gets them from main.
 - **Reproducible replies**: every random choice in replies goes through a `Rng`; with a seed the
   same prompt must give the same text.

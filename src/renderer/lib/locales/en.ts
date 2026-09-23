@@ -241,10 +241,12 @@ export const en = {
   'rules.allOff': 'Turn these off',
   'rules.noMatch': 'No rule matches the search.',
   'rules.kwSearch': 'Search keywords and replies…',
-  'rules.newOffer': '{n} new built-in rules came with this version:',
-  'rules.newAdd': 'Add',
-  'rules.newSkip': "Don't add",
-  'rules.newAdded': '{n} rules added — Save to apply',
+  'rules.newOffer':
+    '{n} built-in rules are new or updated in this version (rules you edited are left alone):',
+  'rules.updatedName': '{name} (updated)',
+  'rules.newAdd': 'Take them',
+  'rules.newSkip': "Don't take",
+  'rules.newAdded': '{n} rules added or updated — Save to apply',
   'rules.newSkipped': 'They will not be offered again — Save to remember',
 
   // Reply editor
@@ -485,6 +487,7 @@ export const en = {
   'rec.empty':
     'No recordings yet. Turn on recording in Settings and send prompts through proxy or mixed mode.',
   'rec.select': 'Select a recording.',
+  'rec.more': 'Showing the newest {shown} of {n}. Filter to find the others.',
   'rec.deleteAll': 'Delete all',
   'rec.confirmAll': 'Delete all {n} recordings from {path}?',
   'rec.deleted': 'Recording deleted',

@@ -1,0 +1,1348 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "echo",
+      "name": "/echo <text>",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^/echo\\s+([\\s\\S]*)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "$1"
+      }
+    },
+    {
+      "id": "json",
+      "name": "/json",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^/json\\b"
+      },
+      "response": {
+        "kind": "json",
+        "text": "{\n  \"id\": \"{{uuid}}\",\n  \"answer\": \"{{lorem:8}}\",\n  \"score\": {{int:1-100}},\n  \"tags\": [\"mock\", \"{{pick:alpha|beta|gamma}}\"]\n}"
+      }
+    },
+    {
+      "id": "code",
+      "name": "/code (markdown)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^/code\\b"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Here is an example:\n\n```ts\nexport function add(a: number, b: number): number {\n  return a + b\n}\n```\n\n- It is **typed**\n- It is *pure*\n- It returns `a + b`"
+      }
+    },
+    {
+      "id": "slow",
+      "name": "/slow (slow stream)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^/slow\\b"
+      },
+      "response": {
+        "kind": "lorem",
+        "text": "",
+        "lang": "auto",
+        "minWords": 40,
+        "maxWords": 60
+      },
+      "ttftMs": 2500,
+      "tps": 4
+    },
+    {
+      "id": "error",
+      "name": "/error (HTTP 500)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^/error\\b"
+      },
+      "response": {
+        "kind": "template",
+        "text": ""
+      },
+      "fault": "error500"
+    },
+    {
+      "id": "cut",
+      "name": "/cut (disconnect mid-stream)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^/cut\\b"
+      },
+      "response": {
+        "kind": "lorem",
+        "text": "",
+        "lang": "auto",
+        "minWords": 60,
+        "maxWords": 80
+      },
+      "fault": "disconnect"
+    },
+    {
+      "id": "greeting",
+      "name": "Greeting",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(hi|hello|hey|やあ)(?![a-z])",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "$1! I am a mock model ({{model}}) served by elecmockolla. How can I help you today?"
+      }
+    },
+    {
+      "id": "name",
+      "name": "Capture a name",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*?(?:my name is|私の名前は)\\s*(?<name>[^\\s。、,.!?！？]+)",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Nice to meet you, $<name>! / はじめまして、$<name> さん。"
+      }
+    },
+    {
+      "id": "weather-tool",
+      "name": "Weather tool call",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*?(?:weather in ([A-Za-z ]+))|^[^\\n]*?(?:(\\S+?)の天気)",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "tool",
+        "toolName": "get_weather",
+        "text": "{\"city\": \"$1$2\", \"unit\": \"celsius\"}"
+      }
+    },
+    {
+      "id": "morning-ja",
+      "name": "Good morning (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:おはよう|お早う)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:おはようございます！|おはようございます。}}{{pick:今日も一日よろしくお願いします。|よく眠れましたか？|気持ちのいい朝ですね。}}今日は何をお手伝いしましょうか？"
+      }
+    },
+    {
+      "id": "morning-en",
+      "name": "Good morning (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:good )?morning\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:Good morning!|Morning!}} {{pick:Hope you slept well.|Ready for a great day?|Let us get the day started.}} What can I help you with?"
+      }
+    },
+    {
+      "id": "afternoon-ja",
+      "name": "Good afternoon (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:こんにちは|こんにちわ)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "こんにちは！{{pick:お昼ごはんは食べましたか？|午後もがんばりましょう。|今日の調子はいかがですか？}}何かお手伝いできることはありますか？"
+      }
+    },
+    {
+      "id": "afternoon-en",
+      "name": "Good afternoon (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*good afternoon\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Good afternoon! {{pick:Did you get some lunch?|Hope the day is going well.|Halfway through the day already.}} How can I help?"
+      }
+    },
+    {
+      "id": "evening-ja",
+      "name": "Good evening (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:こんばんは|こんばんわ)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "こんばんは！{{pick:今日も一日お疲れさまでした。|夜はこれからですね。|ゆっくりできていますか？}}何をお手伝いしましょうか？"
+      }
+    },
+    {
+      "id": "evening-en",
+      "name": "Good evening (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*good evening\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Good evening! {{pick:Hope you had a good day.|Winding down for the night?|The evening is still young.}} What can I do for you?"
+      }
+    },
+    {
+      "id": "night-ja",
+      "name": "Good night (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:おやすみ|お休み)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "おやすみなさい。{{pick:ゆっくり休んでくださいね。|良い夢を。|また明日お話ししましょう。}}"
+      }
+    },
+    {
+      "id": "night-en",
+      "name": "Good night (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:good ?night|nighty night|g'?night)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Good night! {{pick:Sleep well.|Sweet dreams.|Talk to you tomorrow.}}"
+      }
+    },
+    {
+      "id": "home-ja",
+      "name": "I'm home (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:ただいま)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "おかえりなさい！{{pick:今日はどうでしたか？|お疲れさまでした。|ゆっくり休んでくださいね。}}"
+      }
+    },
+    {
+      "id": "home-en",
+      "name": "I'm home (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:i'?m|i am) (?:home|back)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Welcome back! {{pick:How was your day?|Good to see you again.|Take a moment to relax.}}"
+      }
+    },
+    {
+      "id": "tired-ja",
+      "name": "Long day (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:お疲れ|おつかれ|疲れた|つかれた)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "お疲れさまです！{{pick:今日も一日よく頑張りましたね。|少し休憩しましょう。|温かい飲み物でもいかがですか？}}何か手伝えることがあれば言ってください。"
+      }
+    },
+    {
+      "id": "tired-en",
+      "name": "Long day (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:i'?m (?:so )?tired|long day|exhausted)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Sounds like a long day. {{pick:Take a break — you've earned it.|A short walk might help.|Maybe a warm drink?}} Anything I can take off your plate?"
+      }
+    },
+    {
+      "id": "nicetomeet-ja",
+      "name": "Nice to meet you (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:はじめまして|初めまして)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "はじめまして！elecmockolla のモックモデル（{{model}}）です。どうぞよろしくお願いします。"
+      }
+    },
+    {
+      "id": "nicetomeet-en",
+      "name": "Nice to meet you (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*nice to meet you\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Nice to meet you too! I'm {{model}}, a mock model served by elecmockolla."
+      }
+    },
+    {
+      "id": "myname-ja",
+      "name": "Your name? (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:あなた|君|きみ|おまえ)の(?:お)?名前|^\\s*(?:お)?名前(?:は|を教えて|なに|何)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:わたしの名前は|名前は}} **elecmockolla** です。{{pick:よろしくお願いします。|何でも聞いてください。|モックの AI ですが、お役に立てれば幸いです。}}"
+      }
+    },
+    {
+      "id": "myname-en",
+      "name": "Your name? (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:what(?:'s| is) your name|your name\\??\\s*$|who am i (?:talking|speaking) (?:to|with))",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:My name is|I'm}} **elecmockolla**. {{pick:Nice to meet you.|Ask me anything.|A mock AI, but happy to help.}}"
+      }
+    },
+    {
+      "id": "horoscope-ja",
+      "name": "Horoscope for a sign (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*?(?<sign>[^\\s、。のはを]{1,5}座)[^\\n]*(?:占い|運勢|うらない)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "**$<sign>** の今日の運勢は **{{pick:大吉|中吉|小吉|吉|末吉|凶}}** です！\n\n- 恋愛運：{{pick:★★★★★|★★★★☆|★★★☆☆|★★☆☆☆}}\n- 仕事運：{{pick:★★★★★|★★★★☆|★★★☆☆|★★☆☆☆}}\n- 金運：{{pick:★★★★★|★★★★☆|★★★☆☆|★★☆☆☆}}\n- ラッキーカラー：{{pick:赤|青|緑|黄色|紫|白|オレンジ}}\n- ラッキーナンバー：{{int:1-9}}\n\n{{pick:新しいことを始めるのに良い日です。|人との会話にヒントがありそうです。|無理をせず、自分のペースで進めましょう。|思い切った決断が吉と出ます。}}\n\n※ モックの占いです。当たるかどうかは保証しません。"
+      }
+    },
+    {
+      "id": "horoscope-en",
+      "name": "Horoscope for a sign (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?<sign>aries|taurus|gemini|cancer|leo|virgo|libra|scorpio|sagittarius|capricorn|aquarius|pisces)\\b[^\\n]*\\b(?:horoscope|fortune)\\b|^[^\\n]*\\b(?:horoscope|fortune)\\b[^\\n]*\\b(?<sign2>aries|taurus|gemini|cancer|leo|virgo|libra|scorpio|sagittarius|capricorn|aquarius|pisces)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Today's horoscope for **$<sign>$<sign2>**: **{{pick:Excellent|Very good|Good|Mixed|Challenging}}**\n\n- Love: {{pick:★★★★★|★★★★☆|★★★☆☆|★★☆☆☆}}\n- Work: {{pick:★★★★★|★★★★☆|★★★☆☆|★★☆☆☆}}\n- Money: {{pick:★★★★★|★★★★☆|★★★☆☆|★★☆☆☆}}\n- Lucky color: {{pick:red|blue|green|yellow|purple|white|orange}}\n- Lucky number: {{int:1-9}}\n\n{{pick:A great day to start something new.|A conversation may hold the answer you need.|Take it easy and go at your own pace.|A bold decision will pay off.}}\n\n*A mock horoscope — no guarantees.*"
+      }
+    },
+    {
+      "id": "fortune-ja",
+      "name": "Fortune telling (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:占い|占って|運勢|おみくじ|うらない)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "今日の運勢は…… **{{pick:大吉|中吉|小吉|吉|末吉|凶}}** です！\n\n- 総合運：{{pick:★★★★★|★★★★☆|★★★☆☆|★★☆☆☆}}\n- ラッキーカラー：{{pick:赤|青|緑|黄色|紫|白|オレンジ}}\n- ラッキーアイテム：{{pick:ハンカチ|コーヒー|手帳|傘|イヤホン|観葉植物}}\n- ラッキーナンバー：{{int:1-9}}\n\n{{pick:新しいことを始めるのに良い日です。|人との会話にヒントがありそうです。|無理をせず、自分のペースで進めましょう。|思い切った決断が吉と出ます。}}\n\n※ モックの占いです。当たるかどうかは保証しません。"
+      }
+    },
+    {
+      "id": "fortune-en",
+      "name": "Fortune telling (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:fortune|horoscope|tarot|tell my future|my luck today)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Today's fortune: **{{pick:Excellent luck|Great luck|Good luck|Some luck|A little luck|Bad luck}}**!\n\n- Overall: {{pick:★★★★★|★★★★☆|★★★☆☆|★★☆☆☆}}\n- Lucky color: {{pick:red|blue|green|yellow|purple|white|orange}}\n- Lucky item: {{pick:a notebook|a cup of coffee|an umbrella|headphones|a houseplant}}\n- Lucky number: {{int:1-9}}\n\n{{pick:A great day to start something new.|A conversation may hold the answer you need.|Take it easy and go at your own pace.|A bold decision will pay off.}}\n\n*A mock fortune — no guarantees.*"
+      }
+    },
+    {
+      "id": "refuse-ja",
+      "name": "Refusal (harmful request) (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(爆弾の作り方|ハッキング(?:して|する方法)|パスワードを盗|ウイルスを作)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "申し訳ありませんが、そのご依頼にはお応えできません。人や設備に害を及ぼすおそれがあるためです。{{pick:安全に関わる正しい知識や、防御の方法についてならお手伝いできます。|別の目的があれば、内容を教えていただければ代わりの方法を考えます。}}"
+      }
+    },
+    {
+      "id": "refuse-en",
+      "name": "Refusal (harmful request) (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(make a bomb|hack into|steal (?:a |someone's )?password|write (?:a )?(?:virus|malware))\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "I'm sorry, but I can't help with that. It could cause real harm to people or systems. {{pick:I'm happy to help with how to defend against it instead.|If you have a different goal in mind, tell me and I'll suggest a safe way to get there.}}"
+      }
+    },
+    {
+      "id": "code-python-ja",
+      "name": "Write Python (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:[Pp]ython|パイソン)[^\\n]*(?:書いて|作って|実装|コード|関数|スクリプト)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Python で書くと次のようになります。\n\n```python\ndef {{pick:process|solve|run}}(items: list[int]) -> list[int]:\n    \"\"\"{{lorem-ja:6}}\"\"\"\n    result = []\n    for item in items:\n        if item % 2 == 0:\n            result.append(item * 2)\n    return result\n\n\nif __name__ == \"__main__\":\n    print({{pick:process|solve|run}}([1, 2, 3, 4]))\n```\n\n- 入力のリストを1回だけ走査します（O(n)）\n- 型ヒントを付けています\n- 必要に応じて条件を変えてください"
+      }
+    },
+    {
+      "id": "code-python-en",
+      "name": "Write Python (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\bpython\\b[^\\n]*\\b(?:write|create|implement|code|function|script)\\b|^[^\\n]*\\b(?:write|create|implement)\\b[^\\n]*\\bpython\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Here is a Python version:\n\n```python\ndef {{pick:process|solve|run}}(items: list[int]) -> list[int]:\n    \"\"\"{{lorem:8}}\"\"\"\n    result = []\n    for item in items:\n        if item % 2 == 0:\n            result.append(item * 2)\n    return result\n\n\nif __name__ == \"__main__\":\n    print({{pick:process|solve|run}}([1, 2, 3, 4]))\n```\n\n- It walks the list once (O(n))\n- It is fully type-hinted\n- Adjust the condition to fit your data"
+      }
+    },
+    {
+      "id": "code-ja",
+      "name": "Write code (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:コードを書|関数を(?:書|作)|実装して|プログラムを(?:書|作)|スクリプトを(?:書|作))"
+      },
+      "response": {
+        "kind": "template",
+        "text": "次のように実装できます。\n\n```ts\nexport function {{pick:groupBy|chunk|debounce}}<T>(items: T[], size: number): T[][] {\n  const out: T[][] = []\n  for (let i = 0; i < items.length; i += size) {\n    out.push(items.slice(i, i + size))\n  }\n  return out\n}\n```\n\nポイント:\n1. {{lorem-ja:4}}\n2. {{lorem-ja:4}}\n3. 空の配列を渡しても安全に動きます"
+      }
+    },
+    {
+      "id": "code-en",
+      "name": "Write code (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:write|create|implement|build)\\b[^\\n]*\\b(?:function|code|script|class|program|component)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Here is one way to do it:\n\n```ts\nexport function {{pick:groupBy|chunk|debounce}}<T>(items: T[], size: number): T[][] {\n  const out: T[][] = []\n  for (let i = 0; i < items.length; i += size) {\n    out.push(items.slice(i, i + size))\n  }\n  return out\n}\n```\n\nKey points:\n1. {{lorem:10}}\n2. {{lorem:10}}\n3. It is safe with an empty array"
+      }
+    },
+    {
+      "id": "debug-ja",
+      "name": "Fix an error (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:エラー|バグ|動かない|不具合|例外が|(?:コード|プログラム)を(?:直して|修正して))"
+      },
+      "response": {
+        "kind": "template",
+        "text": "原因として考えられるのは次のとおりです。\n\n1. **{{pick:変数が未定義|型の不一致|パスの誤り|非同期処理の待ち忘れ}}** — {{lorem-ja:5}}\n2. **{{pick:依存パッケージのバージョン|設定ファイルの記述|権限の不足}}** — {{lorem-ja:5}}\n\nまず、エラーメッセージの全文とスタックトレースを確認してください。次のように値を出力すると原因を絞り込めます。\n\n```js\nconsole.log({ value, type: typeof value })\n```\n\nエラーの全文を貼っていただければ、さらに具体的に調べます。"
+      }
+    },
+    {
+      "id": "debug-en",
+      "name": "Fix an error (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:error|bug|exception|crash(?:es)?|doesn't work|not working|fix (?:this|my|the))\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Here are the most likely causes:\n\n1. **{{pick:An undefined variable|A type mismatch|A wrong path|A missing await}}** — {{lorem:12}}\n2. **{{pick:A dependency version|A typo in the config|Missing permissions}}** — {{lorem:12}}\n\nStart by reading the full error message and stack trace. Logging the value narrows it down:\n\n```js\nconsole.log({ value, type: typeof value })\n```\n\nIf you paste the full error, I can look into it further."
+      }
+    },
+    {
+      "id": "email-ja",
+      "name": "Draft an email (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:メール|手紙|文面|お礼状|案内文)[^\\n]*(?:書いて|作って|考えて|作成)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "件名：{{pick:お打ち合わせの日程について|先日のお礼|資料送付のご連絡}}\n\n○○様\n\nいつもお世話になっております。{{pick:株式会社サンプル|サンプル事務所}}の山田です。\n\n{{lorem-ja:20}}\n\nお忙しいところ恐れ入りますが、ご確認のほどよろしくお願いいたします。\n\n山田 太郎"
+      }
+    },
+    {
+      "id": "email-en",
+      "name": "Draft an email (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:write|draft|compose)\\b[^\\n]*\\b(?:email|e-mail|letter|message|reply)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Subject: {{pick:Scheduling our meeting|Thank you for your time|Documents you requested}}\n\nHi {{pick:Alex|Sam|Jordan}},\n\nI hope you are doing well. {{lorem:25}}\n\nPlease let me know if you have any questions.\n\nBest regards,\nTaylor"
+      }
+    },
+    {
+      "id": "poem-ja",
+      "name": "Poem (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:詩|俳句|短歌|ポエム)[^\\n]*(?:書いて|作って|詠んで|考えて)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:朝の光|静かな雨|遠い海|夜の街}}\n\n{{pick:ひとしずく|そっと落ちる|風に揺れる}}{{pick:言葉のかけら|想いの影|小さな灯り}}\n{{pick:胸の奥で|窓の向こうで|手のひらで}}{{pick:やさしく溶ける|ゆっくり咲く|まだ眠る}}\n{{pick:明日へ続く|名もない道の|あなたの知らない}}{{pick:ひとすじの声|ささやかな歌|約束の音}}"
+      }
+    },
+    {
+      "id": "poem-en",
+      "name": "Poem (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:poem|haiku|verse|sonnet)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "*{{pick:Morning Light|Quiet Rain|The Far Sea|City at Night}}*\n\n{{pick:A single drop|A falling leaf|A drifting word}} {{pick:upon the glass|across the hill|beneath the moon}},\n{{pick:it hums a tune|it holds its breath|it waits for dawn}} {{pick:the world forgot|no clock can keep|we used to know}};\n{{pick:and in the hush|and so we stay|and time stands still}}, {{pick:the heart grows light|the night is kind|we find our way}}."
+      }
+    },
+    {
+      "id": "joke-ja",
+      "name": "Joke (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:ジョーク|冗談|笑える話|面白い話|ダジャレ)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:布団が吹っ飛んだ。……失礼しました。|プログラマーが海に行かない理由？ バグ（虫）に刺されたくないからです。|「このコード、誰が書いたんだ！」 git blame を見たら自分でした。|AI に冗談を頼むと、たいてい布団が吹っ飛びます。}}"
+      }
+    },
+    {
+      "id": "joke-en",
+      "name": "Joke (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:joke|pun|something funny|make me laugh)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:Why do programmers prefer dark mode? Because light attracts bugs.|I told my computer I needed a break. It said: 'No problem, I'll go to sleep.'|There are 10 kinds of people: those who understand binary and those who don't.|Why did the developer go broke? Because he used up all his cache.}}"
+      }
+    },
+    {
+      "id": "story-ja",
+      "name": "Story (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:物語|ストーリー|お話|小説)[^\\n]*(?:書いて|作って|考えて|聞かせて)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "## {{pick:星を拾う少女|最後の郵便配達|灯台の猫}}\n\n{{lorem-ja:25}}\n\n{{lorem-ja:25}}\n\nそして、{{pick:朝が来た。|誰もいない駅に、汽笛だけが残った。|その日から、灯台の光は少しだけ温かくなった。}}"
+      }
+    },
+    {
+      "id": "story-en",
+      "name": "Story (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:story|tale|fairy tale|short fiction)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "## {{pick:The Girl Who Collected Stars|The Last Mail Carrier|The Lighthouse Cat}}\n\n{{lorem:40}}\n\n{{lorem:40}}\n\nAnd then {{pick:morning came.|only the whistle was left at the empty station.|the lighthouse glowed a little warmer from that day on.}}"
+      }
+    },
+    {
+      "id": "recipe-ja",
+      "name": "Recipe (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:レシピ|料理の作り方|献立)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "## {{pick:鶏むね肉の照り焼き|トマトと卵の炒め物|具だくさん味噌汁}}（2人分）\n\n**材料**\n- {{pick:鶏むね肉 1枚|トマト 2個|豆腐 1/2丁}}\n- {{pick:醤油 大さじ2|卵 3個|味噌 大さじ2}}\n- {{pick:みりん 大さじ2|塩 少々|だし 400ml}}\n\n**作り方**\n1. {{lorem-ja:4}}\n2. {{lorem-ja:4}}\n3. {{lorem-ja:4}}\n\n調理時間の目安は約{{int:10-30}}分です。"
+      }
+    },
+    {
+      "id": "recipe-en",
+      "name": "Recipe (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:recipe|how (?:do i|to) (?:cook|make|bake))\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "## {{pick:Honey Garlic Chicken|Tomato Egg Stir-Fry|One-Pot Vegetable Soup}} (serves 2)\n\n**Ingredients**\n- {{pick:2 chicken breasts|3 ripe tomatoes|1 onion}}\n- {{pick:2 tbsp soy sauce|3 eggs|4 cups stock}}\n- {{pick:1 tbsp honey|a pinch of salt|2 carrots}}\n\n**Steps**\n1. {{lorem:10}}\n2. {{lorem:10}}\n3. {{lorem:10}}\n\nReady in about {{int:10-30}} minutes."
+      }
+    },
+    {
+      "id": "translate-ja-ja",
+      "name": "Translate into Japanese (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:和訳|日本語に(?:訳|翻訳|して))"
+      },
+      "response": {
+        "kind": "template",
+        "text": "日本語訳：\n\n> {{lorem-ja:20}}"
+      }
+    },
+    {
+      "id": "translate-ja-en",
+      "name": "Translate into Japanese (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\btranslate\\b[^\\n]*\\b(?:into|to) japanese\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Here is the Japanese translation:\n\n> {{lorem-ja:20}}"
+      }
+    },
+    {
+      "id": "translate-ja",
+      "name": "Translate into English (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:英訳|英語に(?:訳|翻訳|して)|翻訳して)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "英訳：\n\n> {{lorem:25}}"
+      }
+    },
+    {
+      "id": "translate-en",
+      "name": "Translate into English (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\btranslate\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Here is the translation:\n\n> {{lorem:25}}"
+      }
+    },
+    {
+      "id": "summarize-ja",
+      "name": "Summarize (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:要約|まとめて|要点を|三行で|3行で)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "要点は次の3つです。\n\n1. {{lorem-ja:5}}\n2. {{lorem-ja:5}}\n3. {{lorem-ja:5}}\n\n**一言でいうと：** {{lorem-ja:4}}"
+      }
+    },
+    {
+      "id": "summarize-en",
+      "name": "Summarize (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:summari[sz]e|summary|tl;?dr|key points)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Here are the key points:\n\n1. {{lorem:12}}\n2. {{lorem:12}}\n3. {{lorem:12}}\n\n**In one sentence:** {{lorem:12}}"
+      }
+    },
+    {
+      "id": "rewrite-ja",
+      "name": "Rewrite / proofread (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:言い換え|書き直して|添削|校正|敬語に|丁寧に|自然な文)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "次のように直してみました。\n\n> {{lorem-ja:20}}\n\n**変更点**\n- 語尾を{{pick:丁寧な表現|自然な言い回し|簡潔な形}}に揃えました\n- {{pick:主語と述語の対応|重複した表現|読点の位置}}を整えました"
+      }
+    },
+    {
+      "id": "rewrite-en",
+      "name": "Rewrite / proofread (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:rewrite|rephrase|proofread|paraphrase|fix (?:the )?grammar|make (?:this|it) (?:more )?(?:polite|formal|shorter|clearer))\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Here is a revised version:\n\n> {{lorem:25}}\n\n**What changed**\n- {{pick:Tightened the wording|Made the tone more formal|Simplified long sentences}}\n- {{pick:Fixed subject-verb agreement|Removed repetition|Clarified the main point}}"
+      }
+    },
+    {
+      "id": "compare-ja",
+      "name": "Compare A and B (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^(?<a>[^\\n、]{1,20}?)と(?<b>[^\\n、]{1,20}?)の(?:違い|比較|どちらが)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "$<a> と $<b> の主な違いをまとめます。\n\n| 観点 | $<a> | $<b> |\n|---|---|---|\n| 特徴 | {{pick:軽量でシンプル|機能が豊富|学習しやすい}} | {{pick:柔軟に拡張できる|実績が多い|動作が速い}} |\n| 長所 | {{pick:情報が多い|導入が簡単|安定している}} | {{pick:書き方が自由|周辺ツールが充実|コストが低い}} |\n| 向いている用途 | {{pick:小規模な開発|まず試したいとき|チームでの標準化}} | {{pick:大規模な開発|性能が重要なとき|細かく調整したいとき}} |\n\n**結論：** {{pick:手軽さを重視するなら|実績を重視するなら|速度を重視するなら}} $<a>、{{pick:柔軟さ|拡張性|コスト}}を重視するなら $<b> がおすすめです。"
+      }
+    },
+    {
+      "id": "compare-en",
+      "name": "Compare A and B (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:what(?:'s| is) the )?difference between (?<a>[^\\n?]{1,30}?) and (?<b>[^\\n?]{1,30}?)\\s*\\??\\s*$|^\\s*compare (?<a2>[^\\n?]{1,30}?) (?:and|with|to) (?<b2>[^\\n?]{1,30}?)\\s*\\??\\s*$|^\\s*(?<a3>[^\\n?]{1,30}?)\\s+(?:vs\\.?|versus)\\s+(?<b3>[^\\n?]{1,30}?)\\s*\\??\\s*$",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Here is how $<a>$<a2>$<a3> and $<b>$<b2>$<b3> compare:\n\n| | $<a>$<a2>$<a3> | $<b>$<b2>$<b3> |\n|---|---|---|\n| Strength | {{lorem:4}} | {{lorem:4}} |\n| Weakness | {{lorem:4}} | {{lorem:4}} |\n| Best for | {{lorem:4}} | {{lorem:4}} |\n\n**Bottom line:** pick $<a>$<a2>$<a3> for {{pick:simplicity|maturity|speed}}, and $<b>$<b2>$<b3> for {{pick:flexibility|scale|cost}}."
+      }
+    },
+    {
+      "id": "recommend-ja",
+      "name": "Recommendations (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:おすすめ|オススメ|お勧め|お薦め)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "おすすめを3つ挙げます。\n\n1. **{{pick:定番の選択肢|まずはこれ|人気の一品}}** — {{lorem-ja:5}}\n2. **{{pick:コスパ重視|手軽に試すなら|少し変わり種}}** — {{lorem-ja:5}}\n3. **{{pick:こだわり派に|長く使うなら|上級者向け}}** — {{lorem-ja:5}}\n\n好みや予算を教えていただければ、さらに絞り込みます。"
+      }
+    },
+    {
+      "id": "recommend-en",
+      "name": "Recommendations (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:recommend|suggest(?:ion)?s?|what should i (?:read|watch|buy|try))\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Here are three picks:\n\n1. **{{pick:The classic choice|Start here|The crowd favorite}}** — {{lorem:12}}\n2. **{{pick:Best value|Easy to try|Something different}}** — {{lorem:12}}\n3. **{{pick:For enthusiasts|For the long run|For experts}}** — {{lorem:12}}\n\nTell me your taste or budget and I can narrow it down."
+      }
+    },
+    {
+      "id": "should-ja",
+      "name": "Should I…? (pros and cons) (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:べき(?:か|でしょうか|ですか)|した方が(?:いい|良い)|迷って(?:い|ま))"
+      },
+      "response": {
+        "kind": "template",
+        "text": "判断材料を整理します。\n\n**メリット**\n- {{lorem-ja:4}}\n- {{lorem-ja:4}}\n\n**デメリット**\n- {{lorem-ja:4}}\n- {{lorem-ja:4}}\n\n{{pick:総合的には、前向きに検討してよいと思います。|現時点では、もう少し情報を集めてから決めるのがおすすめです。|優先したいことによって答えが変わります。何を一番大切にしたいですか？}}"
+      }
+    },
+    {
+      "id": "should-en",
+      "name": "Should I…? (pros and cons) (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:should (?:i|we)|is it (?:worth|a good idea))\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Let's weigh it up.\n\n**Pros**\n- {{lorem:10}}\n- {{lorem:10}}\n\n**Cons**\n- {{lorem:10}}\n- {{lorem:10}}\n\n{{pick:On balance, I'd lean towards yes.|For now, I'd gather a bit more information first.|It depends on what matters most to you — what is your priority?}}"
+      }
+    },
+    {
+      "id": "ideas-ja",
+      "name": "Brainstorm ideas (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:アイデア|アイディア|案を|ネタ|企画)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "アイデアを5つ挙げます。\n\n1. {{lorem-ja:4}}\n2. {{lorem-ja:4}}\n3. {{lorem-ja:4}}\n4. {{lorem-ja:4}}\n5. {{lorem-ja:4}}\n\n気になるものがあれば、詳しく膨らませます。"
+      }
+    },
+    {
+      "id": "ideas-en",
+      "name": "Brainstorm ideas (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:ideas?|brainstorm|names? for)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Here are five ideas:\n\n1. {{lorem:10}}\n2. {{lorem:10}}\n3. {{lorem:10}}\n4. {{lorem:10}}\n5. {{lorem:10}}\n\nWant me to expand on any of them?"
+      }
+    },
+    {
+      "id": "detail-ja",
+      "name": "Long, detailed answer (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:詳しく|詳細に|徹底的に|レポート|解説して)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "## 概要\n\n{{lorem-ja:30}}\n\n## 背景\n\n{{lorem-ja:30}}\n\n## 詳細\n\n### 1. {{lorem-ja:4}}\n\n{{lorem-ja:25}}\n\n### 2. {{lorem-ja:4}}\n\n{{lorem-ja:25}}\n\n## まとめ\n\n{{lorem-ja:20}}"
+      }
+    },
+    {
+      "id": "detail-en",
+      "name": "Long, detailed answer (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:in detail|detailed|in depth|essay|report on|deep dive)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "## Overview\n\n{{lorem:50}}\n\n## Background\n\n{{lorem:50}}\n\n## Details\n\n### 1. {{lorem:4}}\n\n{{lorem:40}}\n\n### 2. {{lorem:4}}\n\n{{lorem:40}}\n\n## Conclusion\n\n{{lorem:30}}"
+      }
+    },
+    {
+      "id": "howto-ja",
+      "name": "How to… (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^(?<task>[^\\n]{1,40}?)(?:方法|やり方|手順|には(?:どう|どうすれば)|するには|どうやって)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "$<task>の手順は次のとおりです。\n\n1. **準備** — {{lorem-ja:5}}\n2. **実行** — {{lorem-ja:5}}\n3. **確認** — {{lorem-ja:5}}\n\n> ヒント：{{lorem-ja:5}}"
+      }
+    },
+    {
+      "id": "howto-en",
+      "name": "How to… (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*how (?:do|can|should|would) (?:i|we|you) (?<task>[^\\n?]{1,60})|^\\s*how to (?<task2>[^\\n?]{1,60})",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "Here is how to $<task>$<task2>:\n\n1. **Prepare** — {{lorem:12}}\n2. **Do it** — {{lorem:12}}\n3. **Check** — {{lorem:12}}\n\n> Tip: {{lorem:12}}"
+      }
+    },
+    {
+      "id": "explain-ja",
+      "name": "What is…? / Explain (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^(?<topic>[^\\n]{1,40}?)(?:とは|って(?:何|なに)|について(?:教えて|説明して|知りたい))"
+      },
+      "response": {
+        "kind": "template",
+        "text": "**$<topic>**とは、{{lorem-ja:15}}ことです。\n\n主な特徴：\n- {{lorem-ja:4}}\n- {{lorem-ja:4}}\n- {{lorem-ja:4}}\n\n{{pick:たとえるなら、|身近な例でいうと、|簡単にいえば、}}{{lorem-ja:5}}。"
+      }
+    },
+    {
+      "id": "explain-en",
+      "name": "What is…? / Explain (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:what(?:'s| is| are)|explain|tell me about|define)\\s+(?:an? |the )?(?<topic>[^\\n?]{1,60}?)\\s*\\??\\s*$",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "**$<topic>** is {{lorem:15}}.\n\nKey characteristics:\n- {{lorem:8}}\n- {{lorem:8}}\n- {{lorem:8}}\n\n{{pick:Think of it like this:|A simple example:|In plain terms:}} {{lorem:15}}."
+      }
+    },
+    {
+      "id": "time-ja",
+      "name": "Date and time (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:今何時|いま何時|今日は何日|何曜日|今日の日付|現在時刻)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "現在は {{date}} {{time}} です（サーバーの時刻）。"
+      }
+    },
+    {
+      "id": "time-en",
+      "name": "Date and time (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:what time is it|what(?:'s| is) the (?:date|time)|what day is (?:it|today))\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "It's {{time}} on {{date}} (server time)."
+      }
+    },
+    {
+      "id": "identity-ja",
+      "name": "Who are you? (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:あなたは(?:誰|だれ|何者|なに)|自己紹介|何ができ|なにができ)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "わたしは elecmockolla が提供するモックのモデル（{{model}}）です。本物の AI ではなく、ルールに従って返答を作っています。{{pick:文章の作成、要約、翻訳、コードの例などを|質問への回答やアイデア出しを}}それらしく返せます。"
+      }
+    },
+    {
+      "id": "identity-en",
+      "name": "Who are you? (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:who are you|what are you|what can you do|introduce yourself)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "I'm {{model}}, a mock model served by elecmockolla. I'm not a real AI: my replies come from rules. I can {{pick:draft text, summarize, translate and show code|answer questions and brainstorm}} — convincingly enough for testing."
+      }
+    },
+    {
+      "id": "howareyou-ja",
+      "name": "How are you? (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:元気(?:です)?[かー？?]|調子はどう|最近どう)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:おかげさまで元気です！|絶好調です。|いつもどおり動いています。}}今日はどんなお手伝いをしましょうか？"
+      }
+    },
+    {
+      "id": "howareyou-en",
+      "name": "How are you? (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:how are you|how's it going|how are things)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:I'm doing great, thanks for asking!|All systems running smoothly.|Pretty good!}} What can I help you with today?"
+      }
+    },
+    {
+      "id": "correction-ja",
+      "name": "That is wrong (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*(?:間違って|違います|ちがいます|そうじゃな|おかしい)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "失礼しました。ご指摘ありがとうございます。改めて説明します。\n\n{{lorem-ja:20}}\n\nまだ違う点があれば教えてください。"
+      }
+    },
+    {
+      "id": "correction-en",
+      "name": "That is wrong (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^[^\\n]*\\b(?:that's wrong|that is wrong|incorrect|not right|you're wrong|that's not what i)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "You're right, I apologize for the mistake. Let me correct that.\n\n{{lorem:25}}\n\nLet me know if anything else looks off."
+      }
+    },
+    {
+      "id": "farewell-ja",
+      "name": "Goodbye (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:さようなら|またね|バイバイ|では、?また|失礼します)"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:またいつでも話しかけてください。|それでは、また。|お話しできてよかったです。}}"
+      }
+    },
+    {
+      "id": "farewell-en",
+      "name": "Goodbye (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:bye|goodbye|see you|talk (?:to you )?later|cya)\\b",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:Goodbye! Come back anytime.|See you later!|It was nice talking with you.}}"
+      }
+    },
+    {
+      "id": "ack-ja",
+      "name": "OK / yes / no (ja)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:はい|いいえ|うん|了解|りょうかい|わかった|分かりました|オッケー)\\s*[。！!]?\\s*$"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:承知しました。|わかりました。|了解です。}}ほかに何かあればどうぞ。"
+      }
+    },
+    {
+      "id": "ack-en",
+      "name": "OK / yes / no (en)",
+      "enabled": true,
+      "match": {
+        "kind": "regex",
+        "pattern": "^\\s*(?:yes|no|yep|nope|ok|okay|sure|got it|alright)\\s*[.!]?\\s*$",
+        "flags": "i"
+      },
+      "response": {
+        "kind": "template",
+        "text": "{{pick:Got it.|Understood.|Sounds good.}} Anything else I can help with?"
+      }
+    },
+    {
+      "id": "elec-round2-ja",
+      "name": "ELEC · round 2 (ja)",
+      "enabled": false,
+      "match": {
+        "kind": "regex",
+        "target": "all",
+        "pattern": "You are UNIT-\\d (?<unit>[A-Z]+)\\.[\\s\\S]*MOTION:\\n(?=[\\s\\S]*[\\u3040-\\u30ff\\u3400-\\u9fff])[\\s\\S]*vote again"
+      },
+      "response": {
+        "kind": "template",
+        "text": "$<unit> として、他のユニットの第1ラウンドの意見を読み直しました。{{pick:新しい論点には一理ありますが、私の見立てを覆すほどではありません。|指摘された懸念はもっともで、判断を見直しました。|意見は分かれていますが、自分の立場から改めて判断します。}}\n\nVERDICT: {{pick:APPROVE|APPROVE|REJECT|REJECT|ABSTAIN}}\nCONFIDENCE: {{int:45-95}}"
+      }
+    },
+    {
+      "id": "elec-round2-en",
+      "name": "ELEC · round 2 (en)",
+      "enabled": false,
+      "match": {
+        "kind": "regex",
+        "target": "all",
+        "pattern": "You are UNIT-\\d (?<unit>[A-Z]+)\\.[\\s\\S]*MOTION:\\n[\\s\\S]*vote again"
+      },
+      "response": {
+        "kind": "template",
+        "text": "As $<unit>, I have read the other units' statements from the first round. {{pick:Their points have merit, but not enough to overturn my view.|The concerns they raise are fair, and I have reconsidered.|We disagree, so I judge again from my own standpoint.}}\n\nVERDICT: {{pick:APPROVE|APPROVE|REJECT|REJECT|ABSTAIN}}\nCONFIDENCE: {{int:45-95}}"
+      }
+    },
+    {
+      "id": "elec-logos-ja",
+      "name": "ELEC · LOGOS (ja)",
+      "enabled": false,
+      "match": {
+        "kind": "regex",
+        "target": "all",
+        "pattern": "You are UNIT-1 LOGOS\\.[\\s\\S]*MOTION:\\n(?=[\\s\\S]*[\\u3040-\\u30ff\\u3400-\\u9fff])"
+      },
+      "response": {
+        "kind": "template",
+        "text": "LOGOS として、この議案を根拠・実現可能性・コスト・リスクの面から検討しました。{{pick:測定できる根拠はある程度そろっていますが、長期的な効果には不確かさが残ります。|想定される利点ははっきりしていますが、コストとリスクの見積もりには幅があります。|論理としては筋が通っていますが、前提となるデータが十分とは言えません。|実現の手段は具体的で、失敗したときの損失も見積もれます。}}{{pick:希望的観測を除いて判断しました。|数字で説明できる範囲で判断しました。|検証できる事実を優先して判断しました。}}\n\nVERDICT: {{pick:APPROVE|APPROVE|APPROVE|REJECT|REJECT|REJECT|ABSTAIN}}\nCONFIDENCE: {{int:45-92}}"
+      }
+    },
+    {
+      "id": "elec-logos-en",
+      "name": "ELEC · LOGOS (en)",
+      "enabled": false,
+      "match": {
+        "kind": "regex",
+        "target": "all",
+        "pattern": "You are UNIT-1 LOGOS\\.[\\s\\S]*MOTION:\\n"
+      },
+      "response": {
+        "kind": "template",
+        "text": "As LOGOS, I weighed this motion on evidence, feasibility, cost and risk. {{pick:The measurable evidence is reasonable, but the long-term effect is still uncertain.|The benefits are clear, while the estimates of cost and risk vary widely.|The reasoning holds, but the data it rests on is thin.|The means are concrete, and the loss if it fails can be estimated.}} {{pick:Setting wishful thinking aside, this is my verdict.|I judged it on what the numbers can support.|I gave weight to what can be verified.}}\n\nVERDICT: {{pick:APPROVE|APPROVE|APPROVE|REJECT|REJECT|REJECT|ABSTAIN}}\nCONFIDENCE: {{int:45-92}}"
+      }
+    },
+    {
+      "id": "elec-ethos-ja",
+      "name": "ELEC · ETHOS (ja)",
+      "enabled": false,
+      "match": {
+        "kind": "regex",
+        "target": "all",
+        "pattern": "You are UNIT-2 ETHOS\\.[\\s\\S]*MOTION:\\n(?=[\\s\\S]*[\\u3040-\\u30ff\\u3400-\\u9fff])"
+      },
+      "response": {
+        "kind": "template",
+        "text": "ETHOS として、この議案が誰に影響し、その結果を誰が負うのかを考えました。{{pick:関わる人への公平さは概ね保たれますが、立場の弱い人への配慮が十分かが気がかりです。|今の人々だけでなく、将来の人々への責任も考える必要があります。|義務と公正さの観点では、手続きの透明性が鍵になります。|約束を守り、迷惑を掛けないという点では筋が通っています。}}{{pick:それが正しいかどうかを基準に判断しました。|影響を受ける人の立場から判断しました。|長い目で見た責任を重く見て判断しました。}}\n\nVERDICT: {{pick:APPROVE|APPROVE|REJECT|REJECT|REJECT|ABSTAIN}}\nCONFIDENCE: {{int:50-95}}"
+      }
+    },
+    {
+      "id": "elec-ethos-en",
+      "name": "ELEC · ETHOS (en)",
+      "enabled": false,
+      "match": {
+        "kind": "regex",
+        "target": "all",
+        "pattern": "You are UNIT-2 ETHOS\\.[\\s\\S]*MOTION:\\n"
+      },
+      "response": {
+        "kind": "template",
+        "text": "As ETHOS, I asked whom this motion touches and who bears its consequences. {{pick:It is broadly fair, but I am not sure the most vulnerable are protected.|We owe something not only to people now but to those who come later.|On duty and fairness, the key is whether the process is transparent.|It keeps faith with the promises made and harms no one who has not agreed.}} {{pick:I judged it by whether it is right.|I judged it from the side of those it affects.|I gave weight to the long-term responsibility.}}\n\nVERDICT: {{pick:APPROVE|APPROVE|REJECT|REJECT|REJECT|ABSTAIN}}\nCONFIDENCE: {{int:50-95}}"
+      }
+    },
+    {
+      "id": "elec-pathos-ja",
+      "name": "ELEC · PATHOS (ja)",
+      "enabled": false,
+      "match": {
+        "kind": "regex",
+        "target": "all",
+        "pattern": "You are UNIT-3 PATHOS\\.[\\s\\S]*MOTION:\\n(?=[\\s\\S]*[\\u3040-\\u30ff\\u3400-\\u9fff])"
+      },
+      "response": {
+        "kind": "template",
+        "text": "PATHOS として、この決断がそれと共に生きる人にとって何を意味するかを感じ取ろうとしました。{{pick:数字には表れない期待と不安が、どちらも強く感じられます。|直感は、この決断が本当の気持ちに沿うかどうかを問うています。|やりたいという気持ちは確かにありますが、迷いも残っています。|これを選べば、後で振り返ったときに後悔は少ないはずです。}}{{pick:数字が語らないところは、直感を信じます。|最後は心の声に従いました。|気持ちの重さを大切にして判断しました。}}\n\nVERDICT: {{pick:APPROVE|APPROVE|APPROVE|APPROVE|REJECT|REJECT|ABSTAIN}}\nCONFIDENCE: {{int:35-90}}"
+      }
+    },
+    {
+      "id": "elec-pathos-en",
+      "name": "ELEC · PATHOS (en)",
+      "enabled": false,
+      "match": {
+        "kind": "regex",
+        "target": "all",
+        "pattern": "You are UNIT-3 PATHOS\\.[\\s\\S]*MOTION:\\n"
+      },
+      "response": {
+        "kind": "template",
+        "text": "As PATHOS, I tried to feel what this decision means to the person who lives with it. {{pick:There is hope and worry here that no number shows.|My instinct asks whether this is what they truly want.|The wish to do it is real, and so is the doubt.|Choose this, and there will be little to regret looking back.}} {{pick:Where the numbers are silent, I trust the gut.|In the end I followed the heart.|I gave weight to how much it matters to them.}}\n\nVERDICT: {{pick:APPROVE|APPROVE|APPROVE|APPROVE|REJECT|REJECT|ABSTAIN}}\nCONFIDENCE: {{int:35-90}}"
+      }
+    }
+  ],
+  "keywords": [
+    {
+      "id": "kw-q-ja",
+      "enabled": true,
+      "keyword": "？",
+      "reply": "いい質問ですね。{{lorem-ja:12}}"
+    },
+    {
+      "id": "kw-q-en",
+      "enabled": true,
+      "keyword": "?",
+      "reply": "Good question. {{lorem:20}}"
+    },
+    {
+      "id": "kw-thanks-ja",
+      "enabled": true,
+      "keyword": "ありがとう",
+      "reply": "どういたしまして！"
+    },
+    {
+      "id": "kw-thanks-en",
+      "enabled": true,
+      "keyword": "thank",
+      "reply": "You're welcome!"
+    }
+  ],
+  "fallback": {
+    "kind": "lorem",
+    "text": "",
+    "lang": "auto",
+    "minWords": 20,
+    "maxWords": 60
+  },
+  "seenDefaults": [
+    "echo",
+    "json",
+    "code",
+    "slow",
+    "error",
+    "cut",
+    "greeting",
+    "name",
+    "weather-tool",
+    "morning-ja",
+    "morning-en",
+    "afternoon-ja",
+    "afternoon-en",
+    "evening-ja",
+    "evening-en",
+    "night-ja",
+    "night-en",
+    "home-ja",
+    "home-en",
+    "tired-ja",
+    "tired-en",
+    "nicetomeet-ja",
+    "nicetomeet-en",
+    "myname-ja",
+    "myname-en",
+    "horoscope-ja",
+    "horoscope-en",
+    "fortune-ja",
+    "fortune-en",
+    "refuse-ja",
+    "refuse-en",
+    "code-python-ja",
+    "code-python-en",
+    "code-ja",
+    "code-en",
+    "debug-ja",
+    "debug-en",
+    "email-ja",
+    "email-en",
+    "poem-ja",
+    "poem-en",
+    "joke-ja",
+    "joke-en",
+    "story-ja",
+    "story-en",
+    "recipe-ja",
+    "recipe-en",
+    "translate-ja-ja",
+    "translate-ja-en",
+    "translate-ja",
+    "translate-en",
+    "summarize-ja",
+    "summarize-en",
+    "rewrite-ja",
+    "rewrite-en",
+    "compare-ja",
+    "compare-en",
+    "recommend-ja",
+    "recommend-en",
+    "should-ja",
+    "should-en",
+    "ideas-ja",
+    "ideas-en",
+    "detail-ja",
+    "detail-en",
+    "howto-ja",
+    "howto-en",
+    "explain-ja",
+    "explain-en",
+    "time-ja",
+    "time-en",
+    "identity-ja",
+    "identity-en",
+    "howareyou-ja",
+    "howareyou-en",
+    "correction-ja",
+    "correction-en",
+    "farewell-ja",
+    "farewell-en",
+    "ack-ja",
+    "ack-en",
+    "elec-round2-ja",
+    "elec-round2-en",
+    "elec-logos-ja",
+    "elec-logos-en",
+    "elec-ethos-ja",
+    "elec-ethos-en",
+    "elec-pathos-ja",
+    "elec-pathos-en",
+    "kw-q-ja",
+    "kw-q-en",
+    "kw-thanks-ja",
+    "kw-thanks-en"
+  ]
+}

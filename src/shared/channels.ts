@@ -9,6 +9,7 @@ export const CH = {
   saveRules: 'mockolla:save-rules',
   defaultRules: 'mockolla:default-rules',
   deleteRecordings: 'mockolla:delete-recordings',
+  getRecording: 'mockolla:get-recording',
   testRules: 'mockolla:test-rules',
   injectFault: 'mockolla:inject-fault',
   clearFaults: 'mockolla:clear-faults',

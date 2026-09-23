@@ -241,10 +241,12 @@ export const ja: Record<Key, string> = {
   'rules.allOff': '表示中をすべて無効',
   'rules.noMatch': '検索に一致するルールはありません。',
   'rules.kwSearch': 'キーワードと返答で検索…',
-  'rules.newOffer': 'このバージョンで追加された既定ルールが {n} 件あります:',
-  'rules.newAdd': '追加する',
-  'rules.newSkip': '追加しない',
-  'rules.newAdded': '{n} 件を追加しました。保存すると適用されます',
+  'rules.newOffer':
+    'このバージョンで追加・更新された既定ルールが {n} 件あります（編集したルールはそのままです）:',
+  'rules.updatedName': '{name}（更新）',
+  'rules.newAdd': '取り込む',
+  'rules.newSkip': '取り込まない',
+  'rules.newAdded': '{n} 件を追加・更新しました。保存すると適用されます',
   'rules.newSkipped': '今後は表示しません。保存すると記録されます',
 
   // Reply editor
@@ -490,6 +492,7 @@ export const ja: Record<Key, string> = {
   'rec.empty':
     'まだ録画はありません。設定で録画をオンにして、プロキシか混在モードでプロンプトを送ってください。',
   'rec.select': '録画を選択してください。',
+  'rec.more': '新しい順に {n} 件中 {shown} 件を表示しています。ほかは絞り込みで探せます。',
   'rec.deleteAll': 'すべて削除',
   'rec.confirmAll': '{path} の録画 {n} 件をすべて削除しますか？',
   'rec.deleted': '録画を削除しました',

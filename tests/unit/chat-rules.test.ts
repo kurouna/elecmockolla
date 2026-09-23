@@ -90,6 +90,50 @@ const CASES: [prompt: string, rule: string][] = [
   ['Goodbye!', 'farewell-en'],
   ['了解', 'ack-ja'],
   ['ok', 'ack-en'],
+  // Small talk.
+  ['テスト', 'ping-ja'],
+  ['もしもし', 'ping-ja'],
+  ['test', 'ping-en'],
+  ['Are you there?', 'ping-en'],
+  ['ごめんなさい', 'sorry-ja'],
+  ['Sorry about that', 'sorry-en'],
+  ['すごい！', 'praise-ja'],
+  ['助かりました、ありがとう', 'praise-ja'],
+  ["You're awesome", 'praise-en'],
+  ['www', 'laugh-ja'],
+  ['（笑）', 'laugh-ja'],
+  ['lol', 'laugh-en'],
+  ['暇だなあ', 'bored-ja'],
+  ["I'm bored", 'bored-en'],
+  ['お腹すいた', 'hungry-ja'],
+  ['今日の晩ごはん何にしよう', 'hungry-ja'],
+  ['What should I eat for dinner?', 'hungry-en'],
+  ['眠い…', 'sleepy-ja'],
+  ["I can't sleep", 'sleepy-en'],
+  ['最近ちょっと落ち込んでて', 'sad-ja'],
+  ["I'm feeling down today", 'sad-en'],
+  ['試験に合格した！', 'happy-ja'],
+  ['I got the job!', 'happy-en'],
+  ['今日は誕生日なんだ', 'birthday-ja'],
+  ["It's my birthday today", 'birthday-en'],
+  ['やる気が出ない', 'encourage-ja'],
+  ['Cheer me up', 'encourage-en'],
+  ['あなたは人間ですか？', 'human-ja'],
+  ['Are you a bot?', 'human-en'],
+  ['あなたのことが好き', 'love-ja'],
+  ['I love you', 'love-en'],
+  ['好きな食べ物は？', 'favorite-ja'],
+  ["What's your favorite color?", 'favorite-en'],
+  ['サイコロを振って', 'dice-ja'],
+  ['Roll a die', 'dice-en'],
+  ['コイントスして', 'coin-ja'],
+  ['Heads or tails?', 'coin-en'],
+  ['何か豆知識を教えて', 'trivia-ja'],
+  ['Tell me a fun fact', 'trivia-en'],
+  ['いただきます', 'meal-ja'],
+  ['Bon appetit', 'meal-en'],
+  ['行ってきます', 'leaving-ja'],
+  ["I'm heading out", 'leaving-en'],
   // The rules that were there before keep their prompts.
   ['hello', 'greeting'],
   ['my name is Kurouna', 'name'],
@@ -141,6 +185,17 @@ describe('everyday chat rules', () => {
       expect(p.text, q).toContain('晴れのち雨')
     }
     expect(plan("What's the weather like tomorrow?").text).toContain('Sunny, then rain')
+  })
+
+  it('leaves requests that mention a feeling or a small-talk word to the request', () => {
+    const id = (q: string) => plan(q).match.id
+    expect(id('すごい雨で大変でした')).not.toBe('praise-ja')
+    expect(id('猫が大好きです')).not.toBe('love-ja')
+    expect(id('すみません、Pythonの使い方を教えて')).not.toBe('sorry-ja')
+    expect(id('誕生日プレゼントのおすすめは？')).toBe('recommend-ja')
+    expect(id('ストレステストのやり方')).toBe('howto-ja')
+    expect(id('AIとは何ですか？')).toBe('explain-ja')
+    expect(id('Recommend a birthday gift')).not.toBe('birthday-en')
   })
 
   it('does not take 星座 for a star sign', () => {

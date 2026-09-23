@@ -1,5 +1,7 @@
-import type { FaultSetting, MockConfig, Preset, ServerMode } from '../shared/types.ts'
-import { FAULT_MODES } from './rules.ts'
+import type { FaultMode, FaultSetting, MockConfig, Preset, ServerMode } from '../shared/types.ts'
+
+/** Here, not in rules.ts: the UI imports this file, and rules.ts brings every built-in rule. */
+export const FAULT_MODES: readonly FaultMode[] = ['error500', 'disconnect', 'hang', 'malformed']
 
 export const DEFAULT_MODELS = [
   'llama3.2:3b',

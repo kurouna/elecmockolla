@@ -8,6 +8,7 @@ import type {
   MockConfig,
   Preset,
   Recording,
+  RecordingSummary,
   RequestRecord,
   RulesFile,
   Snapshot,
@@ -34,7 +35,7 @@ export interface AppState extends HostStatus {
   recordingsPath: string
   config: MockConfig
   rules: RulesFile
-  recordings: Recording[]
+  recordings: RecordingSummary[]
   presets: Preset[]
   /** Finished requests, oldest first. */
   history: RequestRecord[]
@@ -95,7 +96,9 @@ export interface MockollaApi {
   saveRules(rules: RulesFile): Promise<SaveResult<RulesFile>>
   defaultRules(): Promise<RulesFile>
   /** Deletes recordings by id ('all' clears the file); returns what is left. */
-  deleteRecordings(ids: string[] | 'all'): Promise<Recording[]>
+  deleteRecordings(ids: string[] | 'all'): Promise<RecordingSummary[]>
+  /** One whole recording, or null when it is gone. */
+  getRecording(id: string): Promise<Recording | null>
   /** Runs the rule engine on `rules` (a draft) or on the saved rules. */
   testRules(input: TestInput & { think?: boolean }, rules?: RulesFile): Promise<TestResult>
   injectFault(mode: FaultMode, count: number): Promise<void>
@@ -115,7 +118,7 @@ export interface MockollaApi {
   onStatus(cb: (s: HostStatus) => void): () => void
   onPlayground(cb: (e: PlaygroundEvent) => void): () => void
   onLoadGen(cb: (s: LoadGenStatus) => void): () => void
-  onRecordings(cb: (r: Recording[]) => void): () => void
+  onRecordings(cb: (r: RecordingSummary[]) => void): () => void
   /** The config or rules changed outside the UI (the control API). */
   onConfig(cb: (c: MockConfig) => void): () => void
   onRules(cb: (r: RulesFile) => void): () => void

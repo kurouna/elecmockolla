@@ -3,7 +3,7 @@ import type {
   ExportFormat,
   MockConfig,
   Preset,
-  Recording,
+  RecordingSummary,
   RequestRecord,
   RulesFile,
   Snapshot,
@@ -41,7 +41,7 @@ class Store {
   envPath = $state('')
   rulesPath = $state('')
   recordingsPath = $state('')
-  recordings = $state.raw<Recording[]>([])
+  recordings = $state.raw<RecordingSummary[]>([])
   config = $state.raw<MockConfig | null>(null)
   rules = $state.raw<RulesFile | null>(null)
   presets = $state.raw<Preset[]>([])

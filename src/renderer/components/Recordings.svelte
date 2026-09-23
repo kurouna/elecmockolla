@@ -1,9 +1,13 @@
 <script lang="ts">
-import type { Recording } from '../../shared/types.ts'
+import type { Recording, RecordingSummary } from '../../shared/types.ts'
 import { fmtMs } from '../lib/format.ts'
 import { i18n, t } from '../lib/i18n.svelte.ts'
 import { store } from '../lib/state.svelte.ts'
 import Icon from './Icon.svelte'
+
+const api = window.mockolla
+/** Rows drawn at once; the filter finds the rest. Thousands of rows would slow the page. */
+const SHOWN = 300
 
 /** The recordings tab of the Rules page: what was recorded, and deleting it. */
 let filter = $state('')
@@ -13,9 +17,27 @@ const rows = $derived.by(() => {
   const f = filter.trim().toLowerCase()
   const list = [...store.recordings].reverse()
   if (!f) return list
-  return list.filter((r) => `${r.prompt} ${r.model} ${r.chunks.join('')}`.toLowerCase().includes(f))
+  return list.filter((r) => `${r.prompt} ${r.model} ${r.preview}`.toLowerCase().includes(f))
 })
-const sel = $derived<Recording | undefined>(store.recordings.find((r) => r.id === selId) ?? rows[0])
+const shown = $derived(rows.length > SHOWN ? rows.slice(0, SHOWN) : rows)
+const sel = $derived<RecordingSummary | undefined>(
+  store.recordings.find((r) => r.id === selId) ?? rows[0],
+)
+
+/** The whole recording (conversation and reply) is fetched from main for the one shown. */
+let detail = $state.raw<Recording | null>(null)
+let detailSeq = 0
+$effect(() => {
+  const id = sel?.id
+  const seq = ++detailSeq
+  if (!id) {
+    detail = null
+    return
+  }
+  void api.getRecording(id).then((r) => {
+    if (seq === detailSeq) detail = r
+  })
+})
 const playback = $derived(!!store.config?.replay && store.config.mode !== 'proxy')
 
 function when(iso: string): string {
@@ -49,12 +71,15 @@ async function removeAll() {
   {:else}
     <div class="split">
       <section class="card list">
-        {#each rows as r (r.id)}
+        {#each shown as r (r.id)}
           <button class="item" class:on={r.id === sel?.id} onclick={() => (selId = r.id)}>
             <span class="p">{r.prompt || '…'}</span>
-            <span class="m mono">{r.model} · {r.chunks.length} · {r.tps || '–'} tok/s</span>
+            <span class="m mono">{r.model} · {r.chunks} · {r.tps || '–'} tok/s</span>
           </button>
         {/each}
+        {#if rows.length > shown.length}
+          <p class="muted small more">{t('rec.more', { shown: shown.length, n: rows.length })}</p>
+        {/if}
       </section>
 
       <section class="card detail">
@@ -69,20 +94,22 @@ async function removeAll() {
               </button>
             </div>
             <div class="muted small">
-              {t('rec.meta', { chunks: sel.chunks.length, ttft: fmtMs(sel.ttftMs), tps: sel.tps || '–' })}
+              {t('rec.meta', { chunks: sel.chunks, ttft: fmtMs(sel.ttftMs), tps: sel.tps || '–' })}
               · {t('rec.recordedAt', { at: when(sel.recordedAt), source: sel.source || '?' })}
             </div>
-            <div class="lbl">{t('rec.conversation')}</div>
-            <pre class="box">{sel.conversation}</pre>
-            {#if sel.thinking.length}
-              <div class="lbl">{t('common.thinking')}</div>
-              <pre class="box think">{sel.thinking.join('')}</pre>
-            {/if}
-            <div class="lbl">{t('common.reply')}</div>
-            <pre class="box chunks">{#each sel.chunks as c, i (i)}<span class:alt={i % 2 === 1}>{c}</span>{/each}</pre>
-            {#if sel.toolCalls.length}
-              <div class="lbl">{t('rec.toolCalls')}</div>
-              <pre class="box">{sel.toolCalls.map((c) => `${c.name}(${JSON.stringify(c.arguments)})`).join('\n')}</pre>
+            {#if detail && detail.id === sel.id}
+              <div class="lbl">{t('rec.conversation')}</div>
+              <pre class="box">{detail.conversation}</pre>
+              {#if detail.thinking.length}
+                <div class="lbl">{t('common.thinking')}</div>
+                <pre class="box think">{detail.thinking.join('')}</pre>
+              {/if}
+              <div class="lbl">{t('common.reply')}</div>
+              <pre class="box chunks">{#each detail.chunks as c, i (i)}<span class:alt={i % 2 === 1}>{c}</span>{/each}</pre>
+              {#if detail.toolCalls.length}
+                <div class="lbl">{t('rec.toolCalls')}</div>
+                <pre class="box">{detail.toolCalls.map((c) => `${c.name}(${JSON.stringify(c.arguments)})`).join('\n')}</pre>
+              {/if}
             {/if}
           </div>
         {:else}
@@ -94,6 +121,9 @@ async function removeAll() {
 </div>
 
 <style>
+  .more {
+    padding: 8px 12px;
+  }
   .rec {
     flex: 1;
     min-height: 0;

@@ -27,6 +27,7 @@ const api: MockollaApi = {
   saveRules: invoke(CH.saveRules),
   defaultRules: invoke(CH.defaultRules),
   deleteRecordings: invoke(CH.deleteRecordings),
+  getRecording: invoke(CH.getRecording),
   testRules: invoke(CH.testRules),
   injectFault: invoke(CH.injectFault),
   clearFaults: invoke(CH.clearFaults),

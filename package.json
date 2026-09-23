@@ -47,7 +47,8 @@
     "package": "electron-vite build && electron-builder",
     "package:dir": "electron-vite build && electron-builder --dir",
     "screenshots": "node scripts/screenshots.mjs",
-    "gen:icon": "node scripts/gen-icon.mjs"
+    "gen:icon": "node scripts/gen-icon.mjs",
+    "gen:earlier-defaults": "node scripts/earlier-defaults.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
