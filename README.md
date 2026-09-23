@@ -20,7 +20,7 @@ Ollama 互換のダミーサーバーと、その動きを見て操作できる�
   <img src="./docs/screenshots/dashboard.png" alt="The dashboard: tokens per second, busy slots and queue charts, four parallel slots streaming, and a waterfall of recent requests">
 </p>
 
-> **v0.0.2 — early release.** Developed and used on Windows. The server and CLI are plain Node
+> **v0.0.3 — early release.** Developed and used on Windows. The server and CLI are plain Node
 > and run anywhere; the macOS and Linux apps are built and tested on GitHub's runners but have
 > not been tried by hand yet.
 
