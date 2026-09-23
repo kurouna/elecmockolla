@@ -51,21 +51,21 @@
     "gen:earlier-defaults": "node scripts/earlier-defaults.mjs"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.13",
+    "@biomejs/biome": "2.5.14",
     "@playwright/test": "^1.63.0",
     "@resvg/resvg-js": "^2.6.2",
     "@sveltejs/vite-plugin-svelte": "6.2.4",
-    "@types/node": "24.13.4",
-    "electron": "44.3.0",
+    "@types/node": "24.13.6",
+    "electron": "44.4.5",
     "electron-builder": "26.15.3",
     "electron-vite": "5.0.0",
-    "ollama": "^0.6.0",
-    "openai": "^6.0.0",
-    "svelte": "5.57.0",
+    "ollama": "^0.6.3",
+    "openai": "^7.23.0",
+    "svelte": "5.57.1",
     "svelte-check": "4.7.6",
     "typescript": "6.0.3",
     "vite": "7.3.6",
-    "vitest": "5.0.0"
+    "vitest": "5.0.1"
   },
   "author": {
     "name": "kurouna",
