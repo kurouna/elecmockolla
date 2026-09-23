@@ -1,7 +1,7 @@
 {
   "name": "elecmockolla",
   "productName": "elecmockolla",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "A mock Ollama server with a live dashboard: rule-based dummy replies, parallel slots and queue, fault injection. For testing, demos and screenshots of apps that talk to Ollama.",
   "keywords": [
