@@ -112,7 +112,10 @@ export function defaultRules(): RulesFile {
         enabled: true,
         match: {
           kind: 'regex',
-          pattern: '^[^\\n]*?(?:weather in ([A-Za-z ]+))|^[^\\n]*?(?:(\\S+?)の天気)',
+          // A city is named: 東京の天気, 大阪の明日の天気, weather in Paris. A time word is not
+          // a city (明日の天気 names none), so that question gets the weather reply in words.
+          pattern:
+            '^[^\\n]*?(?:weather in ([A-Za-z ]+))|^[^\\n]*?(?<![^\\s、。の])(?!(?:今日|きょう|明日|あした|あす|明後日|あさって|今夜|今晩|今週|来週|週末|今朝|昼|夜|午前|午後)の)([^\\sの、。？?]+?)の(?:(?:今日|きょう|明日|あした|あす|明後日|あさって|今夜|今晩|今週|来週|週末|今朝|昼|夜|午前|午後)の)?天気',
           flags: 'i',
         },
         response: {

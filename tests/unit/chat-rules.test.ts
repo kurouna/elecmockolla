@@ -94,6 +94,9 @@ const CASES: [prompt: string, rule: string][] = [
   ['hello', 'greeting'],
   ['my name is Kurouna', 'name'],
   ['東京の天気は？', 'weather-tool'],
+  ['明日の天気は？', 'weather-ja'],
+  ['今日は傘いる？', 'weather-ja'],
+  ["What's the weather like tomorrow?", 'weather-en'],
   ['/json', 'json'],
 ]
 
@@ -123,6 +126,41 @@ describe('everyday chat rules', () => {
     expect(plan('あなたの名前は？').text).toContain('**elecmockolla**')
     expect(plan("What's your name?").text).toContain('**elecmockolla**')
     expect(plan('占いして').text).toMatch(/\*\*(大吉|中吉|小吉|吉|末吉|凶)\*\*/)
+  })
+
+  it('calls get_weather only for a place, and answers in words otherwise', () => {
+    const city = (q: string) =>
+      (plan(q).toolCalls[0]?.arguments as { city?: string } | undefined)?.city
+    expect(city('東京の天気は？')).toBe('東京')
+    expect(city('大阪の明日の天気は？')).toBe('大阪')
+    expect(city('明日の大阪の天気を教えて')).toBe('大阪')
+    expect(city('weather in Paris')).toBe('Paris')
+    for (const q of ['明日の天気は？', '今日の天気', 'あさっての天気はどう？', '週末の天気']) {
+      const p = plan(q)
+      expect(p.toolCalls, q).toEqual([])
+      expect(p.text, q).toContain('晴れのち雨')
+    }
+    expect(plan("What's the weather like tomorrow?").text).toContain('Sunny, then rain')
+  })
+
+  it('does not take 星座 for a star sign', () => {
+    expect(plan('星座占いして').match.id).toBe('fortune-ja')
+    expect(plan('今日の星座占い').text).not.toContain('**星座**')
+  })
+
+  it('answers in words once the tool result is back, instead of calling the tool again', () => {
+    const q = '東京の天気は？'
+    const p = engine.plan({
+      model: 'm',
+      last: q,
+      all: q,
+      system: '',
+      think: false,
+      afterTool: true,
+    })
+    expect(p.toolCalls).toEqual([])
+    expect(p.match.id).toBe('weather-ja')
+    expect(p.text).toContain('晴れのち雨')
   })
 
   it('leaves plain questions to the keyword table and the rest to the fallback', () => {

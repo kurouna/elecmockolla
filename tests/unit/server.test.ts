@@ -89,6 +89,23 @@ describe('Ollama API through the official client', () => {
     expect(r.embeddings[0]).toHaveLength(768)
   })
 
+  it('answers in words after the client sends the tool result back', async () => {
+    const ask = { role: 'user' as const, content: '大阪の天気は？' }
+    const first = await ollama.chat({ model: 'm', messages: [ask] })
+    const call = first.message.tool_calls?.[0]
+    expect(call?.function.name).toBe('get_weather')
+    const second = await ollama.chat({
+      model: 'm',
+      messages: [
+        ask,
+        first.message,
+        { role: 'tool', content: '{"condition": "cloudy", "temp": 21}' },
+      ],
+    })
+    expect(second.message.tool_calls ?? []).toEqual([])
+    expect(second.message.content).toContain('晴れのち雨')
+  })
+
   it('pulls a new model into the list and shows it loaded after use', async () => {
     server.setConfig({ ...server.config, pullMs: 50 })
     const events: string[] = []

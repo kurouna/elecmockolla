@@ -23,6 +23,12 @@ export interface Prompt {
   think: boolean
   /** "json", a JSON schema, or undefined. */
   format?: unknown
+  /**
+   * The conversation ends with a tool result: the client ran the tool call and sent its
+   * answer back. Tool-call rules then stand aside, so the reply is words, not the same
+   * call again (which would loop forever).
+   */
+  afterTool?: boolean | undefined
 }
 
 export interface ToolCall {
@@ -281,6 +287,7 @@ export class Engine {
 
     for (const r of this.rules.rules) {
       if (!r.enabled) continue
+      if (p.afterTool && r.response.kind === 'tool') continue
       const m = matchRule(r, p)
       if (m === false) continue
       rule = r

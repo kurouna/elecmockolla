@@ -135,7 +135,7 @@ const CHAT: Intent[] = [
     id: 'horoscope',
     name: 'Horoscope for a sign',
     ja: [
-      String.raw`^[^\n]*?(?<sign>[^\s、。のはを]{1,5}座)[^\n]*(?:占い|運勢|うらない)`,
+      String.raw`^[^\n]*?(?!星座)(?<sign>[^\s、。のはを]{1,5}座)[^\n]*(?:占い|運勢|うらない)`,
       '**$<sign>** の今日の運勢は **{{pick:大吉|中吉|小吉|吉|末吉|凶}}** です！\n\n- 恋愛運：{{pick:★★★★★|★★★★☆|★★★☆☆|★★☆☆☆}}\n- 仕事運：{{pick:★★★★★|★★★★☆|★★★☆☆|★★☆☆☆}}\n- 金運：{{pick:★★★★★|★★★★☆|★★★☆☆|★★☆☆☆}}\n- ラッキーカラー：{{pick:赤|青|緑|黄色|紫|白|オレンジ}}\n- ラッキーナンバー：{{int:1-9}}\n\n{{pick:新しいことを始めるのに良い日です。|人との会話にヒントがありそうです。|無理をせず、自分のペースで進めましょう。|思い切った決断が吉と出ます。}}\n\n※ モックの占いです。当たるかどうかは保証しません。',
     ],
     en: [
@@ -153,6 +153,20 @@ const CHAT: Intent[] = [
     en: [
       String.raw`^[^\n]*\b(?:fortune|horoscope|tarot|tell my future|my luck today)\b`,
       "Today's fortune: **{{pick:Excellent luck|Great luck|Good luck|Some luck|A little luck|Bad luck}}**!\n\n- Overall: {{pick:★★★★★|★★★★☆|★★★☆☆|★★☆☆☆}}\n- Lucky color: {{pick:red|blue|green|yellow|purple|white|orange}}\n- Lucky item: {{pick:a notebook|a cup of coffee|an umbrella|headphones|a houseplant}}\n- Lucky number: {{int:1-9}}\n\n{{pick:A great day to start something new.|A conversation may hold the answer you need.|Take it easy and go at your own pace.|A bold decision will pay off.}}\n\n*A mock fortune — no guarantees.*",
+    ],
+  },
+  // The weather in words, whatever the place: a question with no city (明日の天気は？),
+  // a client that sends no tools, and the reply after a get_weather result comes back.
+  {
+    id: 'weather',
+    name: 'Weather (in words)',
+    ja: [
+      String.raw`^[^\n]*(?:天気|天候|気温|傘(?:は|が)?(?:いる|必要))`,
+      '晴れのち雨の予報です。午後から雨が降りやすいので、傘があると安心です。\n\n※ モックの天気予報です。実際の天気とは関係ありません。',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:weather|forecast|temperature|umbrella)\b`,
+      'Sunny, then rain later in the day — take an umbrella.\n\n*A mock forecast — not the real weather.*',
     ],
   },
   {

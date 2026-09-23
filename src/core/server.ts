@@ -183,6 +183,7 @@ function parseMessages(messages: unknown): {
   all: string
   system: string
   count: number
+  afterTool: boolean
 } {
   const list = Array.isArray(messages) ? messages.filter(isObj) : []
   const system = list
@@ -192,7 +193,7 @@ function parseMessages(messages: unknown): {
   const users = list.filter((m) => m.role === 'user')
   const last = contentText(users.at(-1)?.content)
   const all = list.map((m) => contentText(m.content)).join('\n')
-  return { last, all, system, count: list.length }
+  return { last, all, system, count: list.length, afterTool: list.at(-1)?.role === 'tool' }
 }
 
 function parseRequest(api: Api, body: Obj): Parsed {
@@ -204,6 +205,7 @@ function parseRequest(api: Api, body: Obj): Parsed {
   let all = ''
   let system = ''
   let empty = false
+  let afterTool = false
   if (api === 'generate' || api === 'openai-completion') {
     last = Array.isArray(body.prompt) ? body.prompt.map(String).join('\n') : str(body.prompt)
     system = str(body.system)
@@ -211,7 +213,7 @@ function parseRequest(api: Api, body: Obj): Parsed {
     empty = !last && api === 'generate'
   } else {
     const m = parseMessages(body.messages)
-    ;({ last, all, system } = m)
+    ;({ last, all, system, afterTool } = m)
     empty = m.count === 0 && api === 'chat'
   }
   const thinkRaw =
@@ -234,7 +236,7 @@ function parseRequest(api: Api, body: Obj): Parsed {
   const stream = openai ? body.stream === true : body.stream !== false
   const includeUsage = isObj(body.stream_options) && body.stream_options.include_usage === true
   return {
-    prompt: { model, last, all, system, seed, think, format },
+    prompt: { model, last, all, system, seed, think, format, afterTool },
     stream,
     numPredict,
     keepAlive: body.keep_alive,

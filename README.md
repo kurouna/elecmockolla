@@ -180,7 +180,7 @@ usually has, in Japanese and English: greetings by the time of day (おはよう
 "I'm home", fortune-telling and horoscopes (`占って`, `Leo horoscope`), "what is …", "how do
 I …", comparisons (as a table), code (TypeScript or Python), fixing an error, summaries,
 translation, rewriting, emails, recommendations, pros and cons, ideas, poems, stories, jokes,
-recipes, the date and time, "who are you", thanks, goodbyes — and a refusal, to test how your app
+recipes, the weather, the date and time, "who are you", thanks, goodbyes — and a refusal, to test how your app
 shows one. Try `hello`, `What is Kubernetes?`, `ReactとVueの違いは？`, `東京の天気は？`,
 `Tell me a joke`. These rules read only the first line of the prompt.
 
