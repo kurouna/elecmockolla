@@ -43,7 +43,13 @@ describe('a rules file from v0.0.1', () => {
     // Nothing left to offer, and the file answers every prompt as a fresh one does.
     const left = missingDefaults(taken, d)
     expect([...left.rules, ...left.updated, ...left.keywords]).toEqual([])
-    for (const q of ['明日の天気は？', 'What is Kubernetes?', '星座占いして', 'テスト'])
+    for (const q of [
+      '明日の天気は？',
+      'What is Kubernetes?',
+      '星座占いして',
+      'テスト',
+      '今、何時？',
+    ])
       expect(ask(taken, q).match.id, q).toBe(ask(d, q).match.id)
   })
 })

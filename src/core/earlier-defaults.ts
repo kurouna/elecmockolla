@@ -7,5 +7,6 @@ export const EARLIER_DEFAULTS: Readonly<Record<string, readonly string[]>> = {
   greeting: ['16gvgr1iah5zz'],
   'horoscope-ja': ['1r7lqo8dwenay'],
   name: ['1og4moi1f9wvmi'],
+  'time-ja': ['4vhvw81rsqy96'],
   'weather-tool': ['1rwuld51abbqkx', '1i07gp11qwe0i9'],
 }
