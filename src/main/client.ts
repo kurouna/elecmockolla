@@ -12,6 +12,11 @@ import type {
 
 type Emit<T> = (e: T) => void
 
+/** Chunks are sent to the page at most this often (the first one at once, for its timing). */
+const FLUSH_MS = 60
+/** The raw reply kept for the wire view; a reply that never ends must not grow main's memory. */
+const MAX_RAW = 200_000
+
 function buildRequest(
   url: string,
   r: PlaygroundRequest,
@@ -128,6 +133,26 @@ export class Playground {
       const dec = new TextDecoder()
       let buf = ''
       let raw = ''
+      // Chunks gathered since the last send.
+      let pending: { content: string; thinking: string; raw: string[] } | null = null
+      let sent = false
+      let timer: NodeJS.Timeout | undefined
+      const flush = () => {
+        timer = undefined
+        if (!pending) return
+        emit({ id, type: 'chunk', ...pending })
+        pending = null
+      }
+      const take = (content: string, thinking: string, line: string) => {
+        pending ??= { content: '', thinking: '', raw: [] }
+        pending.content += content
+        pending.thinking += thinking
+        pending.raw.push(line)
+        if (!sent) {
+          sent = true
+          flush()
+        } else timer ??= setTimeout(flush, FLUSH_MS)
+      }
       const handleLine = (line: string) => {
         const t = line.startsWith('data:') ? line.slice(5).trim() : line.trim()
         if (!t || t === '[DONE]') return
@@ -135,16 +160,17 @@ export class Playground {
         try {
           o = JSON.parse(t)
         } catch {
-          emit({ id, type: 'chunk', content: '', thinking: '', raw: line })
+          take('', '', line)
           return
         }
-        emit({ id, type: 'chunk', ...pieces(o), raw: t })
+        const p = pieces(o)
+        take(p.content, p.thinking, t)
       }
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
         const text = dec.decode(value, { stream: true })
-        raw += text
+        if (raw.length < MAX_RAW) raw += text
         buf += text
         // A non-streamed reply is one JSON document, possibly pretty-printed.
         if (!r.stream) continue
@@ -153,11 +179,13 @@ export class Playground {
         for (const line of lines) handleLine(line)
       }
       if (buf.trim()) handleLine(r.stream ? buf : buf.replace(/\n/g, ' '))
+      clearTimeout(timer)
+      flush()
       emit({
         id,
         type: 'done',
         ms: Date.now() - t0,
-        raw: raw.length > 200_000 ? `${raw.slice(0, 200_000)}…` : raw,
+        raw: raw.length >= MAX_RAW ? `${raw}…` : raw,
       })
     } catch (e) {
       emit({

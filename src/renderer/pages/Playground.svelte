@@ -27,7 +27,13 @@ let t0 = 0
 let firstAt = $state(0)
 let doneMs = $state(0)
 let chunks = $state(0)
+/** The reply outgrew MAX_TEXT and its start is no longer shown. */
+let clipped = $state(false)
 let preview = $state<TestResult | null>(null)
+
+/** Text kept on screen: a reply that never ends shows its latest part, not all of it. */
+const MAX_TEXT = 40_000
+const keepTail = (s: string) => (s.length > MAX_TEXT ? s.slice(-MAX_TEXT) : s)
 
 const QUICK = [
   'hello',
@@ -63,10 +69,13 @@ $effect(() => {
         break
       case 'chunk':
         if (!firstAt && (e.content || e.thinking)) firstAt = performance.now()
-        content += e.content
-        thinking += e.thinking
-        chunks++
-        if (raw.length < 400) raw.push(e.raw)
+        if (e.content) {
+          clipped ||= content.length + e.content.length > MAX_TEXT
+          content = keepTail(content + e.content)
+        }
+        if (e.thinking) thinking = keepTail(thinking + e.thinking)
+        chunks += e.raw.length
+        if (raw.length < 400) raw.push(...e.raw.slice(0, 400 - raw.length))
         break
       case 'done':
         doneMs = e.ms
@@ -101,6 +110,7 @@ async function send() {
   firstAt = 0
   doneMs = 0
   chunks = 0
+  clipped = false
   t0 = performance.now()
   const id = await api.playground({ api: kind, model, prompt, system, stream, think, json })
   if (id < 0) {
@@ -203,6 +213,7 @@ const ttftMs = $derived(firstAt ? firstAt - t0 : 0)
         <pre class="raw">{raw.join('\n')}</pre>
       {:else}
         {#if thinking}<pre class="think">{thinking}</pre>{/if}
+        {#if clipped}<div class="muted clipped">{t('pg.clipped', { n: MAX_TEXT.toLocaleString() })}</div>{/if}
         <pre class="text">{content}{#if running !== null}<span class="caret"></span>{/if}</pre>
         {#if !content && !thinking && !error && running === null}
           <div class="empty">{t('pg.empty')}</div>
@@ -291,6 +302,10 @@ const ttftMs = $derived(firstAt ? firstAt - t0 : 0)
     font-size: 13.5px;
     line-height: 1.7;
     font-family: var(--font);
+  }
+  .clipped {
+    font-size: 11px;
+    margin-bottom: 6px;
   }
   .think {
     color: var(--blue);

@@ -57,7 +57,8 @@ export interface PlaygroundRequest {
 export type PlaygroundEvent =
   | { id: number; type: 'request'; method: string; url: string; body: unknown }
   | { id: number; type: 'status'; status: number }
-  | { id: number; type: 'chunk'; content: string; thinking: string; raw: string }
+  /** One or more stream chunks, batched by main so a fast or endless stream cannot flood the page. */
+  | { id: number; type: 'chunk'; content: string; thinking: string; raw: string[] }
   | { id: number; type: 'done'; ms: number; raw: string }
   | { id: number; type: 'error'; message: string }
 

@@ -174,6 +174,7 @@ export const en = {
   'pg.total': 'total',
   'pg.rate': 'rate',
   'pg.empty': 'Send a prompt to see the mock reply stream in.',
+  'pg.clipped': '… a long reply: only the last {n} characters are shown.',
 
   // Rules
   'rules.tab.rules': 'Regex rules',

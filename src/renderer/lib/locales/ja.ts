@@ -174,6 +174,7 @@ export const ja: Record<Key, string> = {
   'pg.total': '合計',
   'pg.rate': '速度',
   'pg.empty': 'プロンプトを送ると、モックの返答がストリーミングで表示されます。',
+  'pg.clipped': '… 長い返答のため、最後の {n} 文字だけを表示しています。',
 
   // Rules
   'rules.tab.rules': '正規表現ルール',
