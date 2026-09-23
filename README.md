@@ -70,6 +70,10 @@ headless. elecmockolla adds what you want while building an app that talks to Ol
   shows the real traffic on the same dashboard; mixed mode answers from the rules first and
   sends the rest to Ollama.
 
+<p align="center">
+  <img src="./docs/screenshots/requests.png" alt="The request inspector: every request with its status, model, matched rule and timings, and the selected one's prompt and reply">
+</p>
+
 ## API coverage
 
 | Ollama | OpenAI-compatible | Control (`/_mock/*`) |
@@ -128,7 +132,7 @@ them.
 
 <p align="center">
   <img src="./docs/screenshots/rules.png" width="49%" alt="The rules editor with a regex rule, its reply template and a live tester">
-  <img src="./docs/screenshots/requests.png" width="49%" alt="The request inspector: a list of requests and the selected one's prompt, reply and timings">
+  <img src="./docs/screenshots/playground.png" width="49%" alt="The playground: a prompt sent to the mock and its streamed reply, with the rule that answered">
 </p>
 
 ## Proxy and mixed modes
@@ -213,6 +217,10 @@ the folder in both cases.
 
 The app speaks English and Japanese: Japanese when the OS language is Japanese, English
 otherwise. Switch it at the bottom of the sidebar, or start with `MOCKOLLA_LANG=en|ja`.
+
+<p align="center">
+  <img src="./docs/screenshots/settings.png" alt="The settings page: the mode (mock, proxy, mixed), the address to listen on, and the parallel slots and queue">
+</p>
 画面は日本語と英語に対応しています（OS の言語が日本語なら日本語）。サイドバー下部で切り替えられます。
 
 ## Using it in tests

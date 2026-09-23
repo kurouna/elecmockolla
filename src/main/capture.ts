@@ -32,13 +32,18 @@ export async function capturePages(
 
   await wait(1500)
   startTraffic()
-  await wait(3500)
+  // Let the traffic run long enough to fill most of the 30-second timeline.
   await open(0)
+  await wait(25_000)
   await shot('dashboard')
 
-  // Requests: select the newest one so the detail pane is filled.
+  // Requests: select the newest finished one so the detail pane shows a whole reply.
   await open(1)
-  await js(`document.querySelector('tbody tr.clickable')?.click()`)
+  await js(`(() => {
+    const rows = [...document.querySelectorAll('tbody tr.clickable')]
+    const done = rows.find((r) => r.cells[2]?.textContent?.trim() === '200')
+    ;(done ?? rows[0])?.click()
+  })()`)
   await wait(400)
   await shot('requests')
 
