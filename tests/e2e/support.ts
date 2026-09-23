@@ -32,9 +32,9 @@ export interface Launched {
 
 /**
  * Starts the built app (`npm run build` first) with its own settings folder and port,
- * in English, and waits until the mock answers.
+ * in the given language (English by default), and waits until the mock answers.
  */
-export async function launch(): Promise<Launched> {
+export async function launch(lang: 'en' | 'ja' = 'en'): Promise<Launched> {
   const home = mkdtempSync(path.join(tmpdir(), 'mockolla-e2e-'))
   const port = await freePort()
   const app = await electron.launch({
@@ -45,7 +45,7 @@ export async function launch(): Promise<Launched> {
       NODE_ENV: 'test',
       MOCKOLLA_HOME: home,
       MOCKOLLA_PORT: String(port),
-      MOCKOLLA_LANG: 'en',
+      MOCKOLLA_LANG: lang,
       // Quick replies, and the same ones every run.
       MOCKOLLA_TTFT_MS: '0',
       MOCKOLLA_TPS: '0',

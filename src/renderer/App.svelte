@@ -66,15 +66,17 @@ function onKey(e: KeyboardEvent) {
     <div class="status">
       <span class="dot" class:live={st === 'running'} class:warn={st === 'starting' || st === 'stopping'} class:bad={st === 'error'}></span>
       {#if st === 'running'}
-        <button class="url mono" title={t('app.copyUrl')} onclick={() => store.copy(store.status.url, t('app.urlCopied'))}>
+        <!-- Narrow windows drop the uptime, then the labels, then the host of the /v1 URL;
+             the title always has all of it, and the mode and REC chips always stay. -->
+        <button class="url mono" title="{t('app.ollamaApi')} {store.status.url} — {t('app.copyUrl')}" onclick={() => store.copy(store.status.url, t('app.urlCopied'))}>
           <em>{t('app.ollamaApi')}</em>{store.status.url}
           <Icon name="copy" size={12} />
         </button>
-        <button class="url mono" title={t('app.copyOpenai')} onclick={() => store.copy(`${store.status.url}/v1`, t('app.urlCopied'))}>
-          <em>{t('app.openaiApi')}</em>{store.status.url}/v1
+        <button class="url mono" title="{t('app.openaiApi')} {store.status.url}/v1 — {t('app.copyOpenai')}" onclick={() => store.copy(`${store.status.url}/v1`, t('app.urlCopied'))}>
+          <em>{t('app.openaiApi')}</em><span class="host">{store.status.url}</span>/v1
           <Icon name="copy" size={12} />
         </button>
-        <span class="muted">{t('app.uptime', { time: fmtUptime((snap?.now ?? 0) - (snap?.startedAt ?? 0)) })}</span>
+        <span class="muted uptime">{t('app.uptime', { time: fmtUptime((snap?.now ?? 0) - (snap?.startedAt ?? 0)) })}</span>
         {#if store.config}
           <!-- The mode the server runs in; the dot pulses while it runs, and turns red when Ollama is down. -->
           <button
@@ -244,6 +246,21 @@ function onKey(e: KeyboardEvent) {
     font: 600 10px var(--font);
     font-style: normal;
     color: var(--muted);
+  }
+  @media (max-width: 1300px) {
+    .uptime {
+      display: none;
+    }
+  }
+  @media (max-width: 1160px) {
+    .url em {
+      display: none;
+    }
+  }
+  @media (max-width: 1040px) {
+    .url .host {
+      display: none;
+    }
   }
   .mode {
     --tone: var(--violet);

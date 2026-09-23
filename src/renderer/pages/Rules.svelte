@@ -509,6 +509,10 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
     display: flex;
     flex-direction: column;
   }
+  .lhead .row {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
   .lhead {
     display: flex;
     flex-direction: column;
@@ -607,6 +611,7 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
   }
   .when {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     align-items: flex-end;
   }

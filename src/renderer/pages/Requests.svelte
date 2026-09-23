@@ -238,9 +238,16 @@ function phases(r: RequestRecord) {
   }
   .toolbar {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
     padding: 10px;
     border-bottom: 1px solid var(--line);
+  }
+  .toolbar > .input {
+    /* A narrow window puts the filter on a line of its own rather than squash it. */
+    flex: 1 1 180px;
+    min-width: 180px;
   }
   .table {
     flex: 1;

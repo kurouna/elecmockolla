@@ -513,6 +513,8 @@ function modeKey(e: KeyboardEvent) {
     color: var(--muted);
     font-size: 11.5px;
     line-height: 1.45;
+    /* Long file paths wrap instead of running out of the row. */
+    overflow-wrap: anywhere;
   }
   .ctl {
     width: 260px;
