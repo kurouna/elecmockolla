@@ -60,11 +60,11 @@ function onKey(e: KeyboardEvent) {
       <span class="dot" class:live={st === 'running'} class:warn={st === 'starting' || st === 'stopping'} class:bad={st === 'error'}></span>
       {#if st === 'running'}
         <button class="url mono" title={t('app.copyUrl')} onclick={() => store.copy(store.status.url, t('app.urlCopied'))}>
-          <em>Ollama</em>{store.status.url}
+          <em>{t('app.ollamaApi')}</em>{store.status.url}
           <Icon name="copy" size={12} />
         </button>
         <button class="url mono" title={t('app.copyOpenai')} onclick={() => store.copy(`${store.status.url}/v1`, t('app.urlCopied'))}>
-          <em>OpenAI</em>{store.status.url}/v1
+          <em>{t('app.openaiApi')}</em>{store.status.url}/v1
           <Icon name="copy" size={12} />
         </button>
         <span class="muted">{t('app.uptime', { time: fmtUptime((snap?.now ?? 0) - (snap?.startedAt ?? 0)) })}</span>
@@ -78,7 +78,7 @@ function onKey(e: KeyboardEvent) {
             onclick={() => (store.page = 'settings')}
           >
             <span class="dot" class:live={up?.ok} class:bad={up !== null && up.checkedAt > 0 && !up.ok}></span>
-            {t(`mode.${mode}`)} → {store.config.upstream.replace(/^https?:\/\//, '')}
+            {t(`mode.${mode}`)}
           </button>
           {#if store.config.record}
             <button class="rec" title={t('app.recTitle', { path: store.recordingsPath })} onclick={() => (store.page = 'rules')}>

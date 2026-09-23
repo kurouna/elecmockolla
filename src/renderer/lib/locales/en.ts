@@ -11,8 +11,12 @@ export const en = {
   'nav.models': 'Models',
   'nav.chaos': 'Chaos',
   'nav.settings': 'Settings',
-  'app.copyUrl': 'Copy the base URL for Ollama clients (ollama libraries, OLLAMA_HOST)',
-  'app.copyOpenai': 'Copy the base URL for OpenAI-compatible clients',
+  'app.ollamaApi': 'Ollama API',
+  'app.openaiApi': 'OpenAI-compatible',
+  'app.copyUrl':
+    'Copy the Ollama API base URL (/api/...): for ollama libraries, OLLAMA_HOST, Open WebUI',
+  'app.copyOpenai':
+    'Copy the OpenAI-compatible base URL (/v1/...): for elecdex, openai libraries and other OpenAI-style clients',
   'app.urlCopied': 'URL copied',
   'app.uptime': 'up {time}',
   'app.restart': 'Restart',
@@ -386,9 +390,9 @@ export const en = {
   'app.upstreamOk': 'Ollama {version} is answering at {url}',
   'app.upstreamDown': 'Ollama at {url} is not reachable: {error}',
   'set.mode': 'Mode',
-  'set.upstream': 'Ollama URL',
+  'set.upstream': 'OpenAI-compatible URL',
   'set.upstreamHelp':
-    'The real Ollama that proxy and mixed modes forward to, as OpenAI clients take it (ending in /v1).',
+    'The real Ollama that proxy and mixed modes forward to: its OpenAI-compatible URL, ending in /v1. Ollama API requests (/api/...) go to the same server.',
   'set.upstreamOk': 'Connected: Ollama {version}, {models} models, {loaded} loaded',
   'set.upstreamDown': 'Not reachable: {error}',
   'set.upstreamChecking': 'Checking…',

@@ -10,8 +10,12 @@ export const ja: Record<Key, string> = {
   'nav.models': 'モデル',
   'nav.chaos': '障害注入',
   'nav.settings': '設定',
-  'app.copyUrl': 'Ollama クライアント用（ollama ライブラリ、OLLAMA_HOST）のベース URL をコピー',
-  'app.copyOpenai': 'OpenAI 互換クライアント用のベース URL をコピー',
+  'app.ollamaApi': 'Ollama API',
+  'app.openaiApi': 'OpenAI 互換',
+  'app.copyUrl':
+    'Ollama API（/api/…）のベース URL をコピー: ollama ライブラリ、OLLAMA_HOST、Open WebUI など向け',
+  'app.copyOpenai':
+    'OpenAI 互換（/v1/…）のベース URL をコピー: elecdex、openai ライブラリなど OpenAI 形式のクライアント向け',
   'app.urlCopied': 'URL をコピーしました',
   'app.uptime': '稼働 {time}',
   'app.restart': '再起動',
@@ -389,9 +393,9 @@ export const ja: Record<Key, string> = {
   'app.upstreamOk': 'Ollama {version} が {url} で応答中',
   'app.upstreamDown': '{url} の Ollama に接続できません: {error}',
   'set.mode': '動作モード',
-  'set.upstream': 'Ollama の URL',
+  'set.upstream': 'OpenAI 互換 URL',
   'set.upstreamHelp':
-    'プロキシ・混在モードの転送先となる本物の Ollama。OpenAI 互換クライアントと同じく /v1 付きで指定します。',
+    'プロキシ・混在モードの転送先となる本物の Ollama の OpenAI 互換 URL（/v1 付き）。Ollama API（/api/…）も同じサーバーに送ります。',
   'set.upstreamOk': '接続中: Ollama {version}・モデル {models} 個・ロード済み {loaded} 個',
   'set.upstreamDown': '接続できません: {error}',
   'set.upstreamChecking': '確認中…',
