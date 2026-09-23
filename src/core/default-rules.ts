@@ -31,6 +31,342 @@ const rule = (id: string, name: string, lang: Lang, [pattern, text]: [string, st
 const pairs = (intents: Intent[]): Rule[] =>
   intents.flatMap((i) => [rule(i.id, i.name, 'ja', i.ja), rule(i.id, i.name, 'en', i.en)])
 
+// --- more greetings -------------------------------------------------------------
+
+const GREETINGS: Intent[] = [
+  {
+    id: 'hey',
+    name: 'Casual hello',
+    ja: [
+      String.raw`^\s*(?:おっす|オッス|ういっす|よっ|やっほー?|ヤッホー?|ハロー|どうも)[ー〜！!。]*\s*$`,
+      '{{pick:やっほー！|おっす！|どうも！}}今日はどうしました？',
+    ],
+    en: [
+      String.raw`^\s*(?:what'?s up|sup|yo|howdy|hiya|greetings)\b`,
+      "{{pick:Hey!|Not much — you?|Howdy!}} What's on your mind?",
+    ],
+  },
+  {
+    id: 'yoroshiku',
+    name: 'Looking forward to working together',
+    ja: [
+      String.raw`^\s*(?:よろしく(?:ね|です)?|よろしくお願い(?:します|いたします|しま〜す))[。！!]*\s*$`,
+      'こちらこそ、よろしくお願いします！何でも気軽に聞いてください。',
+    ],
+    en: [
+      String.raw`^\s*(?:nice to work with you|looking forward to working with you|let'?s get started)\b`,
+      "Likewise! Let's get started — what would you like to do first?",
+    ],
+  },
+  {
+    id: 'longtime',
+    name: 'Long time no see',
+    ja: [
+      String.raw`^[^\n]*(?:久しぶり|ひさしぶり|お久しぶり)`,
+      'お久しぶりです！{{pick:お元気でしたか？|また話せてうれしいです。}}最近はいかがですか？',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:long time no see|it'?s been a while|been a long time)\b`,
+      'It has been a while! {{pick:Good to see you again.|How have you been?}}',
+    ],
+  },
+  {
+    id: 'welcomeback',
+    name: 'Welcome back',
+    ja: [
+      String.raw`^\s*(?:おかえり(?:なさい)?)[。！!〜]*\s*$`,
+      'ただいま戻りました！何かお手伝いできることはありますか？',
+    ],
+    en: [String.raw`^\s*welcome back\b`, "Thanks, I'm back! What can I do for you?"],
+  },
+  {
+    id: 'newyear',
+    name: 'Happy New Year',
+    ja: [
+      String.raw`^[^\n]*(?:あけまして|明けまして|新年おめでとう|あけおめ)`,
+      'あけましておめでとうございます！今年もよろしくお願いします。{{pick:素敵な一年になりますように。|今年の目標は決まりましたか？}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\bhappy new year\b`,
+      'Happy New Year! {{pick:Wishing you a wonderful year.|Any resolutions this year?}}',
+    ],
+  },
+  {
+    id: 'xmas',
+    name: 'Merry Christmas',
+    ja: [
+      String.raw`^[^\n]*(?:メリークリスマス|メリクリ)`,
+      'メリークリスマス！{{pick:素敵なクリスマスを過ごしてください。|プレゼントは何をお願いしましたか？}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\bmerry (?:christmas|xmas)\b`,
+      'Merry Christmas! {{pick:Have a wonderful holiday.|Did you ask for anything special?}}',
+    ],
+  },
+]
+
+// --- words people type to test a chat ---------------------------------------------
+
+const TESTING: Intent[] = [
+  {
+    id: 'say-ok',
+    name: 'Reply with just OK',
+    ja: [
+      String.raw`^[^\n]*[「『"]?(?:OK|ok|Ok|オーケー|OK です|はい)[」』"]?\s*(?:と|って)\s*(?:だけ)?\s*(?:返事|返答|答え|言っ|返し)`,
+      'OK',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:reply|respond|answer|say)\s+(?:with\s+)?(?:just\s+|only\s+)?["']?ok(?:ay)?["']?(?:\s+(?:only|and nothing else))?\s*[.!]?\s*$`,
+      'OK',
+    ],
+  },
+  {
+    id: 'repeat',
+    name: 'Repeat after me',
+    ja: [
+      String.raw`^\s*[「『"](?<text>[^」』"\n]{1,200})[」』"]\s*(?:と|って)\s*(?:言って|繰り返して|返して|オウム返しして)`,
+      '$<text>',
+    ],
+    en: [
+      String.raw`^\s*(?:repeat after me|repeat|say)\s*[:：]?\s*["“'](?<text>[^"”'\n]{1,200})["”']\s*[.!]?\s*$`,
+      '$<text>',
+    ],
+  },
+  {
+    id: 'dummy',
+    name: 'Placeholder input (hoge, foo, asdf…)',
+    ja: [
+      String.raw`^\s*(?:ほげ(?:ほげ)?|ホゲ|ふが|フガ|ぴよ|ピヨ|あ{3,}|てすてす|テステス)\s*[。！!]*\s*$`,
+      '「$&」を受け取りました。テスト用の入力ですね。ほかに試したいことはありますか？',
+    ],
+    en: [
+      String.raw`^\s*(?:foo|bar|baz|hoge|fuga|piyo|asdf+|qwerty|a{3,}|x{3,}|abc|123|1234|12345|lorem ipsum)\s*[.!]*\s*$`,
+      'Got it: "$&" — looks like test input. Anything else to try?',
+    ],
+  },
+  {
+    id: 'math',
+    name: 'Arithmetic (1+1 and so on)',
+    ja: [
+      String.raw`^\s*(?<expr>[0-9０-９(（][0-9０-９()（）.．\s]*(?:[+＋\-−*×xX/÷／][0-9０-９()（）.．\s]+)+)\s*[=＝]?\s*(?:は|って|いくつ)[^\n]{0,12}$`,
+      '答えは **{{calc:$<expr>}}** です。',
+    ],
+    en: [
+      String.raw`^\s*(?:what(?:'s| is)\s+)?(?<expr>[0-9(][0-9().\s]*(?:[+\-*x×/÷][0-9().\s]+)+)\s*=?\s*\??\s*$`,
+      '**{{calc:$<expr>}}**',
+    ],
+  },
+  {
+    id: 'count',
+    name: 'Count to ten',
+    ja: [
+      String.raw`^[^\n]*(?:10|１０|十)まで(?:数えて|かぞえて|数を数えて)`,
+      'いち、に、さん、し、ご、ろく、なな、はち、きゅう、じゅう！（1、2、3、4、5、6、7、8、9、10）',
+    ],
+    en: [String.raw`^[^\n]*\bcount (?:from 1 )?to (?:10|ten)\b`, '1, 2, 3, 4, 5, 6, 7, 8, 9, 10!'],
+  },
+  {
+    id: 'alphabet',
+    name: 'The alphabet / あいうえお',
+    ja: [
+      String.raw`^[^\n]*(?:あいうえお(?:を|って)?(?:言って|教えて|全部|順番)|五十音(?:を|って)?(?:言って|教えて|全部|順番)?)`,
+      'あいうえお かきくけこ さしすせそ たちつてと なにぬねの はひふへほ まみむめも やゆよ らりるれろ わをん',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:say|sing|tell me|recite|what is)\b[^\n]*\b(?:the )?(?:alphabet|abcs)\b`,
+      'A B C D E F G H I J K L M N O P Q R S T U V W X Y Z',
+    ],
+  },
+]
+
+// --- what a kindergartner knows: colors, animals, numbers of things ----------------
+
+const SAYS = String.raw`(?:(?:は|って)?\s*(?:何|なん|なに)(?:て|って)\s*鳴く|の鳴き声)`
+const animal = (
+  id: string,
+  ja: string,
+  jaName: string,
+  jaSound: string,
+  en: string,
+  enName: string,
+  enSound: string,
+): Intent => ({
+  id: `animal-${id}`,
+  name: `What does a ${enName} say?`,
+  ja: [String.raw`^[^\n]*(?:${ja})${SAYS}`, `${jaName}は「**${jaSound}**」と鳴きます。`],
+  en: [
+    String.raw`^[^\n]*\b(?:what does (?:a|an|the) (?:${en}) say|what sound does (?:a|an|the) (?:${en}) make)\b`,
+    `A ${enName} says "**${enSound}**!"`,
+  ],
+})
+
+const LEGS = String.raw`の(?:足|脚|あし)(?:は|って)?\s*(?:何本|なんぼん|いくつ)`
+const legs = (
+  id: string,
+  ja: string,
+  jaName: string,
+  n: number,
+  en: string,
+  enName: string,
+): Intent => ({
+  id: `legs-${id}`,
+  name: `How many legs does a ${enName} have?`,
+  ja: [String.raw`^[^\n]*(?:${ja})${LEGS}`, `${jaName}の足は **${n}本** です。`],
+  en: [
+    String.raw`^[^\n]*\bhow many legs (?:does|do) (?:a |an |the )?(?:${en})\b`,
+    `A ${enName} has **${n} legs**.`,
+  ],
+})
+
+const COLOR = String.raw`(?:は|って)\s*(?:何|なに|なん)\s*色`
+
+const KIDS: Intent[] = [
+  {
+    id: 'color-sky',
+    name: 'What color is the sky?',
+    ja: [
+      String.raw`^[^\n]*空${COLOR}`,
+      '空は **青** です。夕焼けのときはオレンジ色、夜は黒っぽく見えます。',
+    ],
+    en: [
+      String.raw`^[^\n]*\bwhat colou?r is the sky\b`,
+      'The sky is **blue** — orange at sunset, and dark at night.',
+    ],
+  },
+  {
+    id: 'color-apple',
+    name: 'What color is an apple?',
+    ja: [
+      String.raw`^[^\n]*(?:りんご|リンゴ|林檎)${COLOR}`,
+      'りんごは **赤** です。黄色や緑色のりんごもあります。',
+    ],
+    en: [
+      String.raw`^[^\n]*\bwhat colou?r (?:is an apple|are apples)\b`,
+      'Apples are usually **red** — some are green or yellow.',
+    ],
+  },
+  {
+    id: 'color-banana',
+    name: 'What color is a banana?',
+    ja: [
+      String.raw`^[^\n]*(?:バナナ|ばなな)${COLOR}`,
+      'バナナは **黄色** です。熟す前は緑色です。',
+    ],
+    en: [
+      String.raw`^[^\n]*\bwhat colou?r (?:is a banana|are bananas)\b`,
+      'Bananas are **yellow** — green before they ripen.',
+    ],
+  },
+  {
+    id: 'color-snow',
+    name: 'What color is snow?',
+    ja: [String.raw`^[^\n]*雪${COLOR}`, '雪は **白** です。'],
+    en: [String.raw`^[^\n]*\bwhat colou?r is snow\b`, 'Snow is **white**.'],
+  },
+  {
+    id: 'rainbow',
+    name: 'Colors of the rainbow',
+    ja: [
+      String.raw`^[^\n]*(?:虹(?:は|って)?\s*(?:何|なん)\s*色|虹の色)`,
+      '虹は **7色** です：赤・橙（だいだい）・黄・緑・青・藍（あい）・紫。',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:colou?rs of (?:the |a )?rainbow|how many colou?rs (?:are )?in (?:the |a )?rainbow)\b`,
+      'A rainbow has **7 colors**: red, orange, yellow, green, blue, indigo and violet.',
+    ],
+  },
+  {
+    id: 'traffic-light',
+    name: 'Traffic light colors',
+    ja: [
+      String.raw`^[^\n]*信号(?:機)?(?:の色|${COLOR})`,
+      '信号は **赤・黄・青** の3色です。赤は「止まれ」、黄は「注意」、青は「進んでよい」です。',
+    ],
+    en: [
+      String.raw`^[^\n]*\btraffic lights?\b[^\n]*\bcolou?rs?\b`,
+      'Traffic lights are **red, yellow and green**: red means stop, yellow means slow down, green means go.',
+    ],
+  },
+  animal('dog', '犬|いぬ|イヌ', '犬', 'ワンワン', 'dog|puppy', 'dog', 'Woof'),
+  animal('cat', '猫|ねこ|ネコ', '猫', 'ニャー', 'cat|kitty', 'cat', 'Meow'),
+  animal('cow', '牛|うし|ウシ', '牛', 'モー', 'cow', 'cow', 'Moo'),
+  animal('pig', '豚|ぶた|ブタ', '豚', 'ブーブー', 'pig', 'pig', 'Oink'),
+  animal('duck', 'アヒル|あひる|カモ', 'アヒル', 'ガーガー', 'duck', 'duck', 'Quack'),
+  animal(
+    'chicken',
+    'ニワトリ|にわとり|鶏',
+    'ニワトリ',
+    'コケコッコー',
+    'rooster|chicken',
+    'rooster',
+    'Cock-a-doodle-doo',
+  ),
+  animal('frog', 'カエル|かえる|蛙', 'カエル', 'ケロケロ', 'frog', 'frog', 'Ribbit'),
+  animal('sheep', '羊|ひつじ|ヒツジ', '羊', 'メー', 'sheep|lamb', 'sheep', 'Baa'),
+  legs('insect', '虫|昆虫|むし|アリ|チョウ', '昆虫', 6, 'insect|bug|ant', 'insect'),
+  legs('spider', 'クモ|くも|蜘蛛', 'クモ', 8, 'spider', 'spider'),
+  legs('octopus', 'タコ|たこ|蛸', 'タコ', 8, 'octopus', 'octopus'),
+  legs('dog', '犬|いぬ|イヌ|猫|ねこ|ネコ', '犬や猫', 4, 'dog|cat', 'dog or a cat'),
+  legs('bird', '鳥|とり|トリ|ニワトリ', '鳥', 2, 'bird|chicken', 'bird'),
+  {
+    id: 'week',
+    name: 'Days of the week',
+    ja: [
+      String.raw`^[^\n]*(?:(?:1|１|一)週間(?:は|って)?\s*(?:何|なん)日|曜日を(?:全部|教えて|言って|順番))`,
+      '1週間は **7日** です：月・火・水・木・金・土・日。',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:how many days (?:are )?in a week|days of the week)\b`,
+      'A week has **7 days**: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday.',
+    ],
+  },
+  {
+    id: 'year',
+    name: 'Months in a year',
+    ja: [
+      String.raw`^[^\n]*(?:1|１|一)年(?:は|って)?\s*(?:何|なん)\s*(?:か月|ヶ月|カ月|ヵ月|日)`,
+      '1年は **12か月**、**365日** です（うるう年は366日）。',
+    ],
+    en: [
+      String.raw`^[^\n]*\bhow many (?:months|days) (?:are )?in a year\b`,
+      'A year has **12 months** and **365 days** (366 in a leap year).',
+    ],
+  },
+  {
+    id: 'seasons',
+    name: 'The four seasons',
+    ja: [
+      String.raw`^[^\n]*(?:季節(?:は|って)?\s*(?:何|なに|いくつ)|四季(?:は|って|を)?(?:何|なに|教えて)?$)`,
+      '季節は **4つ** です：春・夏・秋・冬。',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:how many seasons|what are the (?:four )?seasons)\b`,
+      'There are **four seasons**: spring, summer, autumn (fall) and winter.',
+    ],
+  },
+  {
+    id: 'fingers',
+    name: 'How many fingers?',
+    ja: [
+      String.raw`^[^\n]*指(?:は|って)?\s*(?:何本|なんぼん|いくつ)`,
+      '指は片手に **5本**、両手で **10本** です。',
+    ],
+    en: [String.raw`^[^\n]*\bhow many fingers\b`, 'Five on each hand — **ten** fingers in all.'],
+  },
+  {
+    id: 'sun',
+    name: 'Where the sun rises',
+    ja: [
+      String.raw`^[^\n]*(?:太陽|お日さま|日)(?:は|って)?\s*(?:どっち|どちら|どこ)から\s*(?:昇|のぼ|出)`,
+      '太陽は **東** から昇って、**西** に沈みます。',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:where|which (?:way|direction)) does the sun (?:rise|come up)\b`,
+      'The sun rises in the **east** and sets in the **west**.',
+    ],
+  },
+]
+
 // Most specific first: a request to write code about an error is a coding request.
 const CHAT: Intent[] = [
   // Greetings by the time of day, and other set phrases.
@@ -118,6 +454,7 @@ const CHAT: Intent[] = [
       "Nice to meet you too! I'm {{model}}, a mock model served by elecmockolla.",
     ],
   },
+  ...GREETINGS,
   {
     id: 'myname',
     name: 'Your name?',
@@ -169,6 +506,10 @@ const CHAT: Intent[] = [
       'Sunny, then rain later in the day — take an umbrella.\n\n*A mock forecast — not the real weather.*',
     ],
   },
+  // Test inputs and simple facts come before the requests: they are exact, and a
+  // question like 空は何色？ must not fall to the generic "？" reply.
+  ...TESTING,
+  ...KIDS,
   {
     id: 'refuse',
     name: 'Refusal (harmful request)',

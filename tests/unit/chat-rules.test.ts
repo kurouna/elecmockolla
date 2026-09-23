@@ -134,6 +134,55 @@ const CASES: [prompt: string, rule: string][] = [
   ['Bon appetit', 'meal-en'],
   ['行ってきます', 'leaving-ja'],
   ["I'm heading out", 'leaving-en'],
+  // More greetings.
+  ['やっほー', 'hey-ja'],
+  ["What's up", 'hey-en'],
+  ['よろしくお願いします', 'yoroshiku-ja'],
+  ["Let's get started", 'yoroshiku-en'],
+  ['お久しぶりです', 'longtime-ja'],
+  ['Long time no see', 'longtime-en'],
+  ['おかえりなさい', 'welcomeback-ja'],
+  ['Welcome back!', 'welcomeback-en'],
+  ['あけましておめでとう', 'newyear-ja'],
+  ['Happy New Year!', 'newyear-en'],
+  ['メリークリスマス', 'xmas-ja'],
+  ['Merry Christmas', 'xmas-en'],
+  // What people type to test a chat.
+  ['OKとだけ返事して', 'say-ok-ja'],
+  ['Reply with just OK', 'say-ok-en'],
+  ['「おはよう」と言って', 'repeat-ja'],
+  ['Repeat after me: "hello there"', 'repeat-en'],
+  ['ほげほげ', 'dummy-ja'],
+  ['asdf', 'dummy-en'],
+  ['1+1は？', 'math-ja'],
+  ['What is 7*6?', 'math-en'],
+  ['10まで数えて', 'count-ja'],
+  ['Count to ten', 'count-en'],
+  ['あいうえおを言って', 'alphabet-ja'],
+  ['Say the alphabet', 'alphabet-en'],
+  // What a kindergartner knows.
+  ['空は何色？', 'color-sky-ja'],
+  ['What color is the sky?', 'color-sky-en'],
+  ['りんごは何色？', 'color-apple-ja'],
+  ['バナナって何色？', 'color-banana-ja'],
+  ['雪は何色？', 'color-snow-ja'],
+  ['虹は何色？', 'rainbow-ja'],
+  ['What are the colors of the rainbow?', 'rainbow-en'],
+  ['信号の色は？', 'traffic-light-ja'],
+  ['犬は何て鳴く？', 'animal-dog-ja'],
+  ['猫の鳴き声は？', 'animal-cat-ja'],
+  ['What does a cow say?', 'animal-cow-en'],
+  ['カエルはなんて鳴くの？', 'animal-frog-ja'],
+  ['虫の足は何本？', 'legs-insect-ja'],
+  ['How many legs does a spider have?', 'legs-spider-en'],
+  ['タコの足は何本？', 'legs-octopus-ja'],
+  ['1週間は何日？', 'week-ja'],
+  ['How many days are in a week?', 'week-en'],
+  ['1年は何か月？', 'year-ja'],
+  ['季節はいくつ？', 'seasons-ja'],
+  ['指は何本？', 'fingers-ja'],
+  ['太陽はどっちから昇る？', 'sun-ja'],
+  ['Where does the sun rise?', 'sun-en'],
   // The rules that were there before keep their prompts.
   ['hello', 'greeting'],
   ['my name is Kurouna', 'name'],
@@ -154,8 +203,8 @@ describe('everyday chat rules', () => {
 
   it('answers in the language of the prompt', () => {
     for (const [prompt, rule] of CASES) {
-      // translate-ja is a Japanese prompt asking for English.
-      if (!rule.endsWith('-ja') || rule === 'translate-ja') continue
+      // translate-ja asks for English; say-ok-ja asks for the one word OK.
+      if (!rule.endsWith('-ja') || rule === 'translate-ja' || rule === 'say-ok-ja') continue
       expect(plan(prompt).text, prompt).toMatch(/[぀-ヿ]/)
     }
   })
@@ -196,6 +245,28 @@ describe('everyday chat rules', () => {
     expect(id('ストレステストのやり方')).toBe('howto-ja')
     expect(id('AIとは何ですか？')).toBe('explain-ja')
     expect(id('Recommend a birthday gift')).not.toBe('birthday-en')
+  })
+
+  it('answers simple questions correctly', () => {
+    expect(plan('1+1は？').text).toBe('答えは **2** です。')
+    expect(plan('１２×３はいくつ？').text).toContain('**36**')
+    expect(plan('(2+3)*4').text).toBe('**20**')
+    expect(plan('10/4').text).toBe('**2.5**')
+    expect(plan('「こんにちは」と言って').text).toBe('こんにちは')
+    expect(plan('Reply with just OK').text).toBe('OK')
+    expect(plan('犬は何て鳴く？').text).toContain('ワンワン')
+    expect(plan('What does a duck say?').text).toContain('Quack')
+    expect(plan('クモの足は何本？').text).toContain('8本')
+    expect(plan('空は何色？').text).toContain('青')
+    expect(plan('太陽はどっちから昇る？').text).toContain('東')
+  })
+
+  it('leaves text that only looks like a test word to the other rules', () => {
+    const id = (q: string) => plan(q).match.id
+    expect(id('Pythonで1+1を計算して')).not.toBe('math-ja')
+    expect(id('今日はどうもありがとう')).not.toBe('hey-ja')
+    expect(id('foo barの違いは？')).not.toBe('dummy-en')
+    expect(id('犬と猫の違いは？')).toBe('compare-ja')
   })
 
   it('does not take 星座 for a star sign', () => {

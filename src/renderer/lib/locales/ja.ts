@@ -280,6 +280,7 @@ export const ja: Record<Key, string> = {
   're.ph.lorem': '英単語 N 語',
   're.ph.loremJa': '日本語のダミー文',
   're.ph.int': 'ランダムな整数',
+  're.ph.calc': '計算（取り出した数も使える。+ − × ÷）',
   're.ph.pick': 'いずれか 1 つ',
   're.ph.dollar': '$ そのもの',
 

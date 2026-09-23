@@ -51,8 +51,8 @@ describe('new built-in rules for an existing rules file', () => {
     const ids = merged.rules.map((r) => r.id)
     expect(ids).toHaveLength(defaultRules().rules.length + 1)
     expect(ids[0]).toBe('mine')
-    // A default lands after the nearest default before it: myname-ja after nicetomeet-en.
-    expect(ids.indexOf('myname-ja')).toBe(ids.indexOf('nicetomeet-en') + 1)
+    // A default lands after the nearest default before it: myname-ja after xmas-en.
+    expect(ids.indexOf('myname-ja')).toBe(ids.indexOf('xmas-en') + 1)
     expect(ids.slice(-8).every((id) => id.startsWith('elec-'))).toBe(true)
     expect(merged.rules.find((r) => r.id === 'greeting')?.response.text).toBe('my own greeting')
     expect(missingDefaults(merged).rules).toEqual([])

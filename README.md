@@ -170,18 +170,29 @@ recorded prompt is answered from [Recordings](#recordings) before any of them.)
 3. **Fallback** — lorem ipsum by default, in Japanese when the prompt is Japanese.
 
 Templates understand `$1`…`$99`, `$<name>`, `$&`, and `{{prompt}}`, `{{model}}`,
-`{{lorem:N}}`, `{{lorem-ja:N}}`, `{{int:1-100}}`, `{{pick:a|b|c}}`, `{{uuid}}`, `{{date}}`,
+`{{lorem:N}}`, `{{lorem-ja:N}}`, `{{int:1-100}}`, `{{pick:a|b|c}}`, `{{calc:$1+$2}}`, `{{uuid}}`, `{{date}}`,
 `{{time}}`, `{{now}}`, `{{n}}`. When the client asks for `format: "json"` or a JSON schema and
 the rule replied with text, a valid document is produced (fake values that follow the schema).
 
 The default `rules.json` starts with one slash command per feature: `/json`, `/code`,
 `/echo …`, `/slow`, `/error`, `/cut`. Then come replies for the conversations an AI chat
-usually has, in Japanese and English: greetings by the time of day (おはよう, good night…),
-"I'm home", fortune-telling and horoscopes (`占って`, `Leo horoscope`), "what is …", "how do
-I …", comparisons (as a table), code (TypeScript or Python), fixing an error, summaries,
-translation, rewriting, emails, recommendations, pros and cons, ideas, poems, stories, jokes,
-recipes, the weather, the date and time, "who are you", thanks, goodbyes — and a refusal, to test how your app
-shows one. Try `hello`, `What is Kubernetes?`, `ReactとVueの違いは？`, `東京の天気は？`,
+usually has, in Japanese and English:
+
+- **Greetings** by the time of day (おはよう, good night…), "I'm home", よろしく, long time no
+  see, New Year and Christmas.
+- **What people type to test a chat**: `テスト`, `ping`, "reply with just OK", "repeat after
+  me", `hoge` / `asdf`, arithmetic (`1+1は？`, `What is 7*6?`), counting to ten, the
+  alphabet and あいうえお.
+- **What a kindergartner knows**: the color of the sky, apples, snow and a rainbow, traffic
+  lights, what animals say, how many legs, days in a week, months in a year, the seasons.
+- **Requests**: "what is …", "how do I …", comparisons (as a table), code (TypeScript or
+  Python), fixing an error, summaries, translation, rewriting, emails, recommendations, pros
+  and cons, ideas, poems, stories, jokes, recipes, the weather, fortune-telling, the date and
+  time — and a refusal, to test how your app shows one.
+- **Small talk**: thanks, sorry, praise, laughter, boredom, hunger, feeling down, good news,
+  birthdays, "are you human?", dice and coins, fun facts, goodbyes.
+
+Try `hello`, `What is Kubernetes?`, `ReactとVueの違いは？`, `東京の天気は？`, `空は何色？`,
 `Tell me a joke`. These rules read only the first line of the prompt.
 
 At the end of the list, **off by default**, are rules for the ELEC system pane of

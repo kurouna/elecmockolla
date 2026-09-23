@@ -60,6 +60,62 @@ interface Ctx {
 
 const jsonEscape = (s: string): string => JSON.stringify(s).slice(1, -1)
 
+/**
+ * Arithmetic for {{calc:...}}: numbers, + - * / and parentheses, also as full-width
+ * characters and × ÷ −. Parsed by hand, never evaluated as code. undefined when the
+ * expression is not arithmetic or divides by zero.
+ */
+export function calc(expr: string): string | undefined {
+  const src = expr
+    .normalize('NFKC')
+    .replace(/[×xX]/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/[−ー–—]/g, '-')
+    .replace(/\s+/g, '')
+  if (!src || src.length > 200 || /[^\d.+\-*/()]/.test(src)) return undefined
+  let i = 0
+  const peek = () => src[i]
+  const num = (): number => {
+    if (peek() === '(') {
+      i++
+      const v = sum()
+      if (peek() !== ')') throw new Error('paren')
+      i++
+      return v
+    }
+    if (peek() === '-') {
+      i++
+      return -num()
+    }
+    const m = /^\d+(?:\.\d+)?/.exec(src.slice(i))
+    if (!m) throw new Error('number')
+    i += m[0].length
+    return Number(m[0])
+  }
+  const product = (): number => {
+    let v = num()
+    while (peek() === '*' || peek() === '/') {
+      const op = src[i++]
+      const r = num()
+      if (op === '/' && r === 0) throw new Error('zero')
+      v = op === '*' ? v * r : v / r
+    }
+    return v
+  }
+  const sum = (): number => {
+    let v = product()
+    while (peek() === '+' || peek() === '-') v = src[i++] === '+' ? v + product() : v - product()
+    return v
+  }
+  try {
+    const v = sum()
+    if (i !== src.length || !Number.isFinite(v)) return undefined
+    return String(Number(v.toFixed(10)))
+  } catch {
+    return undefined
+  }
+}
+
 function placeholder(expr: string, ctx: Ctx): string | undefined {
   const [name = '', ...rest] = expr.split(':')
   const arg = rest.join(':')
@@ -97,6 +153,14 @@ function placeholder(expr: string, ctx: Ctx): string | undefined {
       const items = arg.split('|').map((s) => s.trim())
       return items.length ? pick(rng, items) : ''
     }
+    case 'calc': {
+      // Captured groups inside the expression: {{calc:$1+$2}}.
+      const g = ctx.groups
+      const filled = arg.replace(/\$<([A-Za-z_]\w*)>|\$(\d{1,2})/g, (_w, n?: string, d?: string) =>
+        g ? ((n !== undefined ? g.groups?.[n] : g[Number(d)]) ?? '') : '',
+      )
+      return calc(filled) ?? '?'
+    }
     default:
       return undefined
   }
@@ -108,7 +172,7 @@ function placeholder(expr: string, ctx: Ctx): string | undefined {
  *   $<name>       named groups
  *   $$            a literal dollar
  *   {{prompt}} {{system}} {{model}} {{lorem:N}} {{lorem-ja:N}} {{lorem-auto:N}}
- *   {{date}} {{time}} {{now}} {{uuid}} {{n}} {{int:A-B}} {{pick:a|b|c}}
+ *   {{date}} {{time}} {{now}} {{uuid}} {{n}} {{int:A-B}} {{pick:a|b|c}} {{calc:$1+$2}}
  * Unknown placeholders are left as they are.
  */
 export function renderTemplate(tpl: string, ctx: Ctx): string {

@@ -280,6 +280,7 @@ export const en = {
   're.ph.lorem': 'N English words',
   're.ph.loremJa': 'Japanese filler',
   're.ph.int': 'random integer',
+  're.ph.calc': 'arithmetic, with captured numbers (+ − × ÷)',
   're.ph.pick': 'one of',
   're.ph.dollar': 'a literal $',
 

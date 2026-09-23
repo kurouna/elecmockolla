@@ -82,6 +82,7 @@ let jsonError = $derived.by(() => {
       <span><b>{'{{lorem-ja:N}}'}</b> {t('re.ph.loremJa')}</span>
       <span><b>{'{{int:1-100}}'}</b> {t('re.ph.int')}</span>
       <span><b>{'{{pick:a|b|c}}'}</b> {t('re.ph.pick')}</span>
+      <span><b>{'{{calc:$1+$2}}'}</b> {t('re.ph.calc')}</span>
       <span><b>{'{{uuid}}'}</b> <b>{'{{date}}'}</b> <b>{'{{time}}'}</b> <b>{'{{now}}'}</b> <b>{'{{n}}'}</b></span>
       <span><b>$$</b> {t('re.ph.dollar')}</span>
     </div>

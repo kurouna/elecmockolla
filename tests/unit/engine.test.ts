@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Engine, type Prompt, renderTemplate } from '../../src/core/engine.ts'
+import { calc, Engine, type Prompt, renderTemplate } from '../../src/core/engine.ts'
 import { createRng } from '../../src/core/random.ts'
 import { defaultRules, normalizeRules, parseRules, RulesError } from '../../src/core/rules.ts'
 import { countTokens, loremJa, tokenize } from '../../src/core/text.ts'
@@ -203,5 +203,34 @@ describe('lorem', () => {
   it('Japanese filler ends sentences properly', () => {
     const s = loremJa(createRng(3), 10)
     expect(s.endsWith('。')).toBe(true)
+  })
+})
+
+describe('{{calc:...}}', () => {
+  it('does arithmetic without evaluating code', () => {
+    expect(calc('1+1')).toBe('2')
+    expect(calc('2+3*4')).toBe('14')
+    expect(calc('(2+3)*4')).toBe('20')
+    expect(calc('１０÷４')).toBe('2.5')
+    expect(calc('3×−2')).toBe('-6')
+    expect(calc('0.1+0.2')).toBe('0.3')
+    expect(calc('1/0')).toBeUndefined()
+    expect(calc('1+')).toBeUndefined()
+    expect(calc('process.exit()')).toBeUndefined()
+    expect(calc('2**3')).toBeUndefined()
+  })
+
+  it('fills captured groups into the expression', () => {
+    const rng = createRng(1)
+    const groups = /(\d+)\+(?<b>\d+)/.exec('7+8')
+    const ctx = {
+      rng,
+      prompt: { model: 'm', last: '', all: '', system: '', think: false },
+      json: false,
+      requestNo: 1,
+      groups,
+    }
+    expect(renderTemplate('{{calc:$1+$<b>}}', ctx)).toBe('15')
+    expect(renderTemplate('{{calc:not math}}', ctx)).toBe('?')
   })
 })
