@@ -4,7 +4,10 @@ directories:
   output: release
 files:
   - out/**
+  - resources/**
   - package.json
+# win/mac/linux icons are all derived from build/icon.png, which scripts/gen-icon.mjs
+# renders from build/icon.svg (the elec series icon with the "E" badge).
 asar: true
 win:
   target: [nsis, zip]

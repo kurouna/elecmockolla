@@ -1,0 +1,31 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- B: the dashboard's timeline - requests as bars: queue, model load, first token, streaming -->
+  <rect x="44" y="24" width="184" height="216" rx="16" fill="#cbd5e1"/>
+  <rect x="40" y="20" width="184" height="216" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+  <path d="M54 50V40l5-5 5 5 5-5 5 5v10" stroke="#0d9488" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="86" y="38" width="44" height="8" rx="4" fill="#cbd5e1"/>
+  <rect x="190" y="38" width="22" height="8" rx="4" fill="#99f6e4"/>
+  <path d="M40 60H224" stroke="#e2e8f0" stroke-width="2"/>
+  <g>
+    <rect x="54" y="72" width="16" height="14" rx="4" fill="#cbd5e1"/>
+    <rect x="72" y="72" width="26" height="14" rx="4" fill="#a78bfa"/>
+    <rect x="100" y="72" width="20" height="14" rx="4" fill="#fbbf24"/>
+    <rect x="122" y="72" width="90" height="14" rx="4" fill="#14b8a6"/>
+    <rect x="80" y="94" width="30" height="14" rx="4" fill="#cbd5e1"/>
+    <rect x="112" y="94" width="16" height="14" rx="4" fill="#fbbf24"/>
+    <rect x="130" y="94" width="60" height="14" rx="4" fill="#14b8a6"/>
+    <rect x="66" y="116" width="12" height="14" rx="4" fill="#fbbf24"/>
+    <rect x="80" y="116" width="100" height="14" rx="4" fill="#14b8a6"/>
+    <rect x="136" y="138" width="24" height="14" rx="4" fill="#a78bfa"/>
+    <rect x="162" y="138" width="14" height="14" rx="4" fill="#fbbf24"/>
+    <rect x="178" y="138" width="34" height="14" rx="4" fill="#14b8a6"/>
+    <rect x="140" y="160" width="20" height="14" rx="4" fill="#cbd5e1"/>
+    <rect x="162" y="160" width="50" height="14" rx="4" fill="#14b8a6"/>
+    <rect x="150" y="182" width="12" height="14" rx="4" fill="#fbbf24"/>
+    <rect x="164" y="182" width="36" height="14" rx="4" fill="#f87171"/>
+    <rect x="136" y="204" width="42" height="14" rx="4" fill="#cbd5e1"/>
+    <rect x="180" y="204" width="14" height="14" rx="4" fill="#fbbf24"/>
+  </g>
+  <circle cx="68" cy="180" r="52" fill="#0ea5e9" stroke="#ffffff" stroke-width="8"/>
+  <path d="M44 156H92M44 180H76M44 204H92" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+</svg>

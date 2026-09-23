@@ -30,6 +30,8 @@ import { ServerHost } from './host.ts'
 declare const __APP_VERSION__: string
 
 const PRELOAD = fileURLToPath(new URL('../preload/index.cjs', import.meta.url))
+/** The window and taskbar icon, rendered from build/icon.svg by `npm run gen:icon`. */
+const ICON = path.join(app.getAppPath(), 'resources', 'icons', 'icon.png')
 const RENDERER_HTML = fileURLToPath(new URL('../renderer/index.html', import.meta.url))
 
 /**
@@ -309,6 +311,7 @@ function registerIpc(): void {
 function createWindow(): void {
   win = new BrowserWindow({
     title: 'elecmockolla',
+    icon: ICON,
     width: 1360,
     height: 880,
     minWidth: 960,

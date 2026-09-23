@@ -45,10 +45,12 @@
     "verify": "npm run lint && npm run typecheck && npm run test",
     "package": "electron-vite build && electron-builder",
     "package:dir": "electron-vite build && electron-builder --dir",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "gen:icon": "node scripts/gen-icon.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
+    "@resvg/resvg-js": "^2.6.2",
     "@sveltejs/vite-plugin-svelte": "6.2.4",
     "@types/node": "24.13.4",
     "electron": "44.3.0",

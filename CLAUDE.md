@@ -13,6 +13,7 @@ npm start            # the app (electron-vite dev); creates .env and rules.json 
 npm run serve        # the server alone, from source (node src/core/cli.ts serve)
 npm run verify       # biome + typecheck (node, web) + vitest
 npm run build        # out/ ; `npm run screenshots` needs it
+npm run gen:icon     # build/icon.svg -> build/icon.png, resources/icons/icon.png
 ```
 
 Single test: `npx vitest run tests/unit/server.test.ts -t "<name>"`.

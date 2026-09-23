@@ -2,6 +2,8 @@
 [![Zenn](https://img.shields.io/badge/Zenn-kurouna-blue)](https://zenn.dev/kurouna)
 [![X](https://img.shields.io/badge/X-elecxzy-black)](https://x.com/elecxzy)
 
+<img src="./build/icon.svg" width="96" align="right" alt="elecmockolla icon">
+
 # elecmockolla
 
 A mock [Ollama](https://ollama.com) server with a live dashboard. Point your app at it instead
