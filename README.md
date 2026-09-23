@@ -9,11 +9,12 @@
 # elecmockolla
 
 A mock [Ollama](https://ollama.com) server with a live dashboard. Point your app at it instead
-of a real model, and get instant, scripted, reproducible replies — for tests, for debugging,
-and for recording demos of your app without a GPU.
+of a real model, and get instant, scripted, reproducible replies — or record the real Ollama's
+replies once and play them back — for tests, for debugging, and for demos without a GPU.
 
 Ollama 互換のダミーサーバーと、その動きを見て操作できる管理画面。本物の LLM を待たずに、
-あなたのアプリのテストや動作確認ができ、GPU がなくてもデモを収録できます。
+アプリのテストや動作確認ができます。返答はルールで決めた内容をいつも同じように返すほか、
+本物の Ollama の返答を保存して再現することもできるので、GPU のない環境でもデモを見せられます。
 
 <p align="center">
   <img src="./docs/screenshots/dashboard.png" alt="The dashboard: tokens per second, busy slots and queue charts, four parallel slots streaming, and a waterfall of recent requests">
