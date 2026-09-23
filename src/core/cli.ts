@@ -40,7 +40,7 @@ Options:
       --seed <n>          fixed seed for reproducible replies
       --strict            unknown models get 404
       --mode <mode>       mock | proxy (forward to a real Ollama) | mixed (rules first)
-      --upstream <url>    the real Ollama for proxy and mixed (default: http://127.0.0.1:11434)
+      --upstream <url>    the real Ollama for proxy and mixed (default: http://127.0.0.1:11434/v1)
       --record            save the real Ollama's replies to recordings.json (proxy, mixed)
       --replay            answer recorded prompts with the recorded reply (mock, mixed)
       --json              log one JSON object per finished request

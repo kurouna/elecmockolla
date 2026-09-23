@@ -96,7 +96,7 @@ function revert() {
         <div class="upstream">
           <label class="field grow">
             <span>{t('set.upstream')}</span>
-            <input class="input mono" class:invalid={!upstreamValid} bind:value={form.upstream} placeholder="http://127.0.0.1:11434" />
+            <input class="input mono" class:invalid={!upstreamValid} bind:value={form.upstream} placeholder="http://127.0.0.1:11434/v1" />
             <small>{t('set.upstreamHelp')}</small>
           </label>
           <div class="ustatus">

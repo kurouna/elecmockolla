@@ -10,6 +10,7 @@ import http, {
 } from 'node:http'
 import https from 'node:https'
 import type { Api, ReportedTimings, UpstreamInfo } from '../shared/types.ts'
+import { upstreamRoot } from './config.ts'
 import { normalizeModel } from './models.ts'
 
 /** Marks forwarded requests. A request that comes back with it is a proxy loop. */
@@ -203,7 +204,8 @@ export interface ForwardResult {
 
 /** Sends one request upstream and streams the reply to `res`. */
 export function forward(o: ForwardOptions): Promise<ForwardResult> {
-  const target = new URL(o.path, `${o.upstream}/`)
+  // The client's path is kept whole: /v1/chat/completions and /api/chat both go to the root.
+  const target = new URL(`${upstreamRoot(o.upstream)}${o.path}`)
   const headers: Record<string, string | string[]> = {}
   for (const [k, v] of Object.entries(o.headers))
     if (v !== undefined && !HOP_BY_HOP.has(k.toLowerCase())) headers[k] = v
@@ -324,7 +326,8 @@ export class UpstreamWatch {
   info: UpstreamInfo | null = null
   private timer: NodeJS.Timeout | null = null
   private url = ''
-  private busy = false
+  /** The poll in flight, which a second caller waits for rather than starting another. */
+  private inflight: Promise<void> | null = null
   private intervalMs: number
 
   constructor(intervalMs = 3000) {
@@ -368,13 +371,20 @@ export class UpstreamWatch {
   }
 
   /** Polls now, e.g. right after a reply, so a newly loaded model shows up at once. */
-  async poll(): Promise<void> {
-    if (this.busy || !this.url) return
-    this.busy = true
+  poll(): Promise<void> {
+    if (!this.url) return Promise.resolve()
+    this.inflight ??= this.fetchInfo().finally(() => {
+      this.inflight = null
+    })
+    return this.inflight
+  }
+
+  private async fetchInfo(): Promise<void> {
     const url = this.url
+    const root = upstreamRoot(url)
     try {
       const [v, tags, ps] = await Promise.all(
-        ['/api/version', '/api/tags', '/api/ps'].map((p) => getJson(`${url}${p}`)),
+        ['/api/version', '/api/tags', '/api/ps'].map((p) => getJson(`${root}${p}`)),
       )
       if (url !== this.url) return
       const names = (o: unknown) =>
@@ -401,8 +411,6 @@ export class UpstreamWatch {
           loaded: [],
           checkedAt: Date.now(),
         }
-    } finally {
-      this.busy = false
     }
   }
 }

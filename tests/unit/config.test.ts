@@ -8,6 +8,7 @@ import {
   parseEnv,
   patchConfig,
   serializeEnv,
+  upstreamRoot,
 } from '../../src/core/config.ts'
 import { loadConfig } from '../../src/core/files.ts'
 import { embed, parseKeepAlive } from '../../src/core/models.ts'
@@ -47,6 +48,14 @@ describe('.env', () => {
     const { config, rulesPath } = loadConfig(file, { OLLAMA_HOST: '1.2.3.4:1', MOCKOLLA_TPS: '99' })
     expect(config).toMatchObject({ host: '0.0.0.0', port: 11500, numParallel: 8, tps: 99 })
     expect(rulesPath).toBe(path.join(dir, 'rules.json'))
+  })
+
+  it('finds the server behind an upstream URL', () => {
+    expect(upstreamRoot('http://127.0.0.1:11434/v1')).toBe('http://127.0.0.1:11434')
+    expect(upstreamRoot('http://127.0.0.1:11434/v1/')).toBe('http://127.0.0.1:11434')
+    expect(upstreamRoot('http://127.0.0.1:11434')).toBe('http://127.0.0.1:11434')
+    expect(upstreamRoot('https://gpu/ollama/v1')).toBe('https://gpu/ollama')
+    expect(defaultConfig().upstream).toBe('http://127.0.0.1:11434/v1')
   })
 
   it('patches from UI values', () => {

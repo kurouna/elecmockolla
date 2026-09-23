@@ -123,7 +123,7 @@ Set the mode in **Settings** (or `MOCKOLLA_MODE`, `--mode`):
 | Mode | Replies |
 |---|---|
 | `mock` (default) | all made up by the rules |
-| `proxy` | all from the real Ollama at `MOCKOLLA_UPSTREAM` (default `http://127.0.0.1:11434`) |
+| `proxy` | all from the real Ollama at `MOCKOLLA_UPSTREAM` (default `http://127.0.0.1:11434/v1`) |
 | `mixed` | a matching rule or keyword answers; anything that would reach the fallback goes to Ollama |
 
 The server and Ollama cannot share a port, so run this one on another port and point your app
@@ -131,7 +131,7 @@ at it:
 
 ```bash
 npm run serve -- --mode proxy --port 11435
-npm run serve -- --mode mixed --port 11435 --upstream http://gpu-box:11434
+npm run serve -- --mode mixed --port 11435 --upstream http://gpu-box:11434/v1
 ```
 
 Replies pass through byte for byte; they are read on the way, so every request shows up in the
@@ -189,7 +189,7 @@ ignored from the environment, so a machine that runs the real Ollama does not mo
 | `MOCKOLLA_MODELS` / `MOCKOLLA_STRICT_MODELS` | 5 models / `false` | model list; strict = 404 for others |
 | `MOCKOLLA_FAULT_RATE` / `MOCKOLLA_FAULT_MODE` | `0` / `random` | random fault injection |
 | `MOCKOLLA_RULES` | `rules.json` | rules file, relative to `.env` |
-| `MOCKOLLA_MODE` / `MOCKOLLA_UPSTREAM` | `mock` / `http://127.0.0.1:11434` | proxy and mixed modes, the real Ollama |
+| `MOCKOLLA_MODE` / `MOCKOLLA_UPSTREAM` | `mock` / `http://127.0.0.1:11434/v1` | proxy and mixed modes, the real Ollama (its OpenAI URL; `/api/...` goes to the same server) |
 | `MOCKOLLA_RECORD` / `MOCKOLLA_REPLAY` | `false` / `false` | record Ollama's replies, play them back |
 | `MOCKOLLA_RECORDINGS` | `recordings.json` | recordings file, relative to `.env` |
 

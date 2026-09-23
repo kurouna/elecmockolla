@@ -390,7 +390,8 @@ export const ja: Record<Key, string> = {
   'app.upstreamDown': '{url} の Ollama に接続できません: {error}',
   'set.mode': '動作モード',
   'set.upstream': 'Ollama の URL',
-  'set.upstreamHelp': 'プロキシ・混在モードの転送先となる本物の Ollama。',
+  'set.upstreamHelp':
+    'プロキシ・混在モードの転送先となる本物の Ollama。OpenAI 互換クライアントと同じく /v1 付きで指定します。',
   'set.upstreamOk': '接続中: Ollama {version}・モデル {models} 個・ロード済み {loaded} 個',
   'set.upstreamDown': '接続できません: {error}',
   'set.upstreamChecking': '確認中…',

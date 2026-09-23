@@ -104,6 +104,26 @@ describe('proxy mode', () => {
     expect(snap.models).toContain('qwen3:8b')
   })
 
+  it('takes the upstream as OpenAI clients do, ending in /v1', async () => {
+    const { server, url: v1proxy } = await startServer({ mode: 'proxy', upstream: `${upUrl}/v1` })
+    try {
+      await server.upstream.poll()
+      expect(server.snapshot(false).upstream).toMatchObject({ ok: true, version: '0.12.0' })
+      const tags = await new Ollama({ host: v1proxy }).list()
+      expect(tags.models.length).toBeGreaterThan(0)
+      const openai = new OpenAI({ baseURL: `${v1proxy}/v1`, apiKey: 'x' })
+      const r = await openai.chat.completions.create({
+        model: 'llama3.2:3b',
+        messages: [{ role: 'user', content: 'hello' }],
+      })
+      expect(r.choices[0]?.message.content).toBeTruthy()
+      const g = await new Ollama({ host: v1proxy }).generate({ model: 'm', prompt: 'hello' })
+      expect(g.response).toBeTruthy()
+    } finally {
+      await server.stop()
+    }
+  })
+
   it('injects faults into real replies', async () => {
     proxy.injectFault('disconnect')
     await expect(

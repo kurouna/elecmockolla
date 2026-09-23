@@ -387,7 +387,8 @@ export const en = {
   'app.upstreamDown': 'Ollama at {url} is not reachable: {error}',
   'set.mode': 'Mode',
   'set.upstream': 'Ollama URL',
-  'set.upstreamHelp': 'The real Ollama that proxy and mixed modes forward to.',
+  'set.upstreamHelp':
+    'The real Ollama that proxy and mixed modes forward to, as OpenAI clients take it (ending in /v1).',
   'set.upstreamOk': 'Connected: Ollama {version}, {models} models, {loaded} loaded',
   'set.upstreamDown': 'Not reachable: {error}',
   'set.upstreamChecking': 'Checking…',

@@ -31,7 +31,7 @@ export function defaultConfig(): MockConfig {
     pullMs: 4000,
     rulesPath: 'rules.json',
     mode: 'mock',
-    upstream: 'http://127.0.0.1:11434',
+    upstream: 'http://127.0.0.1:11434/v1',
     record: false,
     replay: false,
     recordingsPath: 'recordings.json',
@@ -39,6 +39,13 @@ export function defaultConfig(): MockConfig {
 }
 
 export const SERVER_MODES: readonly ServerMode[] = ['mock', 'proxy', 'mixed']
+
+/**
+ * The server behind an upstream URL. The upstream is given the way OpenAI-style
+ * clients take it, ending in /v1; Ollama's own API (/api/...) and every forwarded
+ * path hang off the server root. A URL without /v1 is its own root.
+ */
+export const upstreamRoot = (upstream: string): string => upstream.replace(/\/v1\/?$/, '')
 
 /** "localhost:11434" or "http://host:port/" -> "http://host:port"; '' when it is not an http(s) URL. */
 export function normalizeUpstream(v: string): string {
@@ -114,7 +121,10 @@ export const ENV_KEYS: { [K in keyof MockConfig]: { key: string; doc: string } }
     key: 'MOCKOLLA_MODE',
     doc: 'mock = made-up replies | proxy = forward to a real Ollama | mixed = rules first, then Ollama',
   },
-  upstream: { key: 'MOCKOLLA_UPSTREAM', doc: 'The real Ollama for proxy and mixed modes.' },
+  upstream: {
+    key: 'MOCKOLLA_UPSTREAM',
+    doc: 'The real Ollama for proxy and mixed modes, as OpenAI clients take it (ending in /v1).',
+  },
   record: {
     key: 'MOCKOLLA_RECORD',
     doc: "true = save the real Ollama's replies (proxy and mixed modes) to the recordings file.",
