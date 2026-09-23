@@ -1,5 +1,6 @@
 <script lang="ts">
 import AreaChart from '../components/AreaChart.svelte'
+import Hint from '../components/Hint.svelte'
 import Icon from '../components/Icon.svelte'
 import Slots from '../components/Slots.svelte'
 import Waterfall from '../components/Waterfall.svelte'
@@ -150,9 +151,7 @@ function setParallel(delta: number) {
           <pre class="out">{live.responseText}{#if !live.t.ended}<span class="caret"></span>{/if}</pre>
         {:else}
           <div class="empty">
-            {t('dash.emptyBefore')}
-            <button class="btn sm" onclick={() => (store.page = 'playground')}>{t('nav.playground')}</button>
-            {t('dash.emptyAfter')}
+            <Hint text={t('dash.emptyBefore')} links={{ a: { page: 'playground', path: [t('nav.playground')] } }} />
           </div>
         {/if}
       </div>

@@ -470,3 +470,23 @@ table.grid tr.selected td {
 .num {
   font-variant-numeric: tabular-nums;
 }
+
+/* Where a "Page › Section" link landed (store.goto). */
+.landed {
+  animation: landed 1.6s ease-out;
+}
+@keyframes landed {
+  0%,
+  30% {
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  100% {
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landed {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+}

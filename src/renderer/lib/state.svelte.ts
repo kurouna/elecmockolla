@@ -63,6 +63,27 @@ class Store {
     this.leaveGuard = null
     this.#page = p
   }
+  /**
+   * Opens a page and scrolls to one of its sections (an element id), for links like
+   * "Chaos › Load generator". Does nothing when the page refuses to be left.
+   */
+  goto(p: Page, section?: string): void {
+    this.page = p
+    if (this.#page !== p || !section) return
+    // The page renders on the next frame; then its section can be found.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const el = document.getElementById(section)
+        if (!el) return
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        // A short highlight shows where the link landed.
+        el.classList.remove('landed')
+        void el.offsetWidth
+        el.classList.add('landed')
+        setTimeout(() => el.classList.remove('landed'), 1600)
+      }),
+    )
+  }
   selected = $state<number | null>(null)
   theme = $state<Theme>(readTheme())
   toast = $state<{ text: string; kind: 'ok' | 'error' | 'info'; id: number } | null>(null)

@@ -29,7 +29,7 @@ export const ja: Record<Key, string> = {
   'app.notRunning': 'サーバーが動いていません。',
   'app.openSettings': '設定を開く',
   'app.portInUse':
-    'ポート {port} は使用中です。本物の Ollama が動いていませんか？ 設定でポートを変更してください。',
+    'ポート {port} は使用中です。本物の Ollama が動いていませんか？ 設定 › 接続 でポートを変更してください。',
   'server.stopped': '停止中',
   'server.starting': '起動中',
   'server.running': '実行中',
@@ -99,8 +99,7 @@ export const ja: Record<Key, string> = {
   'dash.more': 'スロットを増やす',
   'dash.timeline': 'タイムライン',
   'dash.live': 'ライブ出力',
-  'dash.emptyBefore': 'まだ何もありません。',
-  'dash.emptyAfter': 'で試してみてください',
+  'dash.emptyBefore': 'まだ何もありません。{a} で試してみてください。',
   'dash.recent': '最近のリクエスト',
   'dash.allRequests': 'すべて表示',
 
@@ -117,7 +116,7 @@ export const ja: Record<Key, string> = {
   'slot.empty': '空',
   'wf.more': '他 {n} 件',
   'wf.idle':
-    '直近 {n} 秒のトラフィックはありません。リクエストを送るか、負荷ジェネレーターを起動してください。',
+    '直近 {n} 秒のトラフィックはありません。{a} からリクエストを送るか、{b} でまとめて流してください。',
 
   // Requests
   'req.filter': 'モデル・プロンプト・ルール・返答で絞り込み…',
@@ -323,7 +322,7 @@ export const ja: Record<Key, string> = {
   'chaos.pending': '予約済み:',
   'chaos.clear': '消去',
   'chaos.rulesTip':
-    'ルールでも障害を起こせます。初期ルールでは `/error` で 500、`/cut` で切断します。',
+    'ルールでも障害を起こせます。初期ルールでは `/error` で 500（`/error 429` なら 429）、`/cut` で切断します。',
   'chaos.random': 'ランダム障害',
   'chaos.active': '有効',
   'chaos.probability': 'リクエストごとの確率:',
@@ -411,7 +410,7 @@ export const ja: Record<Key, string> = {
   'set.seedHelp':
     'シードを固定すると、同じプロンプトには常に同じ返答になります。テスト・動画・スクリーンショット向け。',
   'set.models': 'モデル',
-  'set.modelsHelp': 'カンマ区切り。モデル画面でも編集できます。',
+  'set.modelsHelp': 'カンマ区切り。「モデル」ページでも編集できます。',
   'set.version': '報告するバージョン',
   'set.embedDim': '埋め込みの次元数',
   'set.rulesFile': 'ルールファイル',
@@ -443,7 +442,8 @@ export const ja: Record<Key, string> = {
   'mode.mixed.desc':
     'ルールかキーワードに一致したプロンプトはダミーで返し、それ以外は本物の Ollama に転送します。',
   'app.upstreamOk': 'Ollama {version} が {url} で応答中',
-  'app.mockTitle': 'モックモード: すべての返答をルールで作っています。設定で切り替えられます。',
+  'app.mockTitle':
+    'モックモード: すべての返答をルールで作っています。設定 › 動作モード で切り替えられます。',
   'app.upstreamDown': '{url} の Ollama に接続できません: {error}',
   'set.upstream': 'OpenAI 互換 URL',
   'set.upstreamHelp':
@@ -494,7 +494,7 @@ export const ja: Record<Key, string> = {
   'rec.intro':
     '録画をオンにしたとき、プロキシ・混在モードで保存された本物の Ollama の返答です。録画を使う設定がオンなら、モック・混在モードで再生されます。',
   'rec.empty':
-    'まだ録画はありません。設定で録画をオンにして、プロキシか混在モードでプロンプトを送ってください。',
+    'まだ録画はありません。{a} の「録画する」をオンにして、プロキシか混在モードでプロンプトを送ってください。',
   'rec.select': '録画を選択してください。',
   'rec.more': '新しい順に {n} 件中 {shown} 件を表示しています。ほかは絞り込みで探せます。',
   'rec.deleteAll': 'すべて削除',
@@ -506,5 +506,5 @@ export const ja: Record<Key, string> = {
   'rec.meta': '{chunks} チャンク · TTFT {ttft} · {tps} tok/s',
   'rec.recordedAt': '{at} に {source} から録画',
   'rec.toolCalls': 'ツール呼び出し',
-  'rec.playbackOff': '録画を使う設定がオフです。設定でオンにするまで再生されません。',
+  'rec.playbackOff': '「録画を使う」がオフのため、再生されません。{a} でオンにできます。',
 }

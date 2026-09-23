@@ -30,7 +30,7 @@ export const en = {
   'app.notRunning': 'Server not running.',
   'app.openSettings': 'Open settings',
   'app.portInUse':
-    'Port {port} is already in use. Is the real Ollama running? Change the port in Settings.',
+    'Port {port} is already in use. Is the real Ollama running? Change the port in Settings › Connection.',
   'server.stopped': 'stopped',
   'server.starting': 'starting',
   'server.running': 'running',
@@ -100,8 +100,7 @@ export const en = {
   'dash.more': 'More slots',
   'dash.timeline': 'Timeline',
   'dash.live': 'Live output',
-  'dash.emptyBefore': 'Nothing yet. Try the',
-  'dash.emptyAfter': '',
+  'dash.emptyBefore': 'Nothing yet. Try the {a}.',
   'dash.recent': 'Recent',
   'dash.allRequests': 'All requests',
 
@@ -117,7 +116,7 @@ export const en = {
   'slot.queue': 'QUEUE',
   'slot.empty': 'empty',
   'wf.more': '+{n} more',
-  'wf.idle': 'No traffic in the last {n}s — send a request or start the load generator.',
+  'wf.idle': 'No traffic in the last {n}s. Send a request from {a}, or run many at once with {b}.',
 
   // Requests
   'req.filter': 'Filter by model, prompt, rule, reply…',
@@ -323,7 +322,7 @@ export const en = {
   'chaos.pending': 'Pending:',
   'chaos.clear': 'Clear',
   'chaos.rulesTip':
-    'Rules can fail on demand too: by default `/error` returns 500 and `/cut` disconnects.',
+    'Rules can fail on demand too: by default `/error` returns 500 (`/error 429` returns 429) and `/cut` disconnects.',
   'chaos.random': 'Random faults',
   'chaos.active': 'active',
   'chaos.probability': 'Probability per request:',
@@ -438,7 +437,7 @@ export const en = {
   'mode.mixed.desc':
     'Prompts a rule or keyword matches get a made-up reply; everything else goes to the real Ollama.',
   'app.upstreamOk': 'Ollama {version} is answering at {url}',
-  'app.mockTitle': 'Mock mode: every reply is made up by the rules. Change it in Settings.',
+  'app.mockTitle': 'Mock mode: every reply is made up by the rules. Change it in Settings › Mode.',
   'app.upstreamDown': 'Ollama at {url} is not reachable: {error}',
   'set.upstream': 'OpenAI-compatible URL',
   'set.upstreamHelp':
@@ -489,7 +488,7 @@ export const en = {
   'rec.intro':
     'Replies of the real Ollama, saved in proxy and mixed modes when recording is on. They are played back in mock and mixed modes when playback is on.',
   'rec.empty':
-    'No recordings yet. Turn on recording in Settings and send prompts through proxy or mixed mode.',
+    'No recordings yet. Turn on “Record” in {a}, then send prompts in proxy or mixed mode.',
   'rec.select': 'Select a recording.',
   'rec.more': 'Showing the newest {shown} of {n}. Filter to find the others.',
   'rec.deleteAll': 'Delete all',
@@ -501,7 +500,7 @@ export const en = {
   'rec.meta': '{chunks} chunks · TTFT {ttft} · {tps} tok/s',
   'rec.recordedAt': 'Recorded {at} from {source}',
   'rec.toolCalls': 'Tool calls',
-  'rec.playbackOff': 'Playback is off: these are not used until you turn it on in Settings.',
+  'rec.playbackOff': 'Playback is off, so these are not used. Turn on “Play back” in {a}.',
 } as const
 
 export type Key = keyof typeof en

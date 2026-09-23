@@ -85,7 +85,7 @@ function onKey(e: KeyboardEvent) {
               : upDown
                 ? t('app.upstreamDown', { url: store.config.upstream, error: up?.error ?? '' })
                 : t('app.upstreamOk', { version: up?.version ?? '', url: store.config.upstream })}
-            onclick={() => (store.page = 'settings')}
+            onclick={() => store.goto('settings', 'sec-mode')}
           >
             <span class="pulse"></span>
             {t(`mode.${mode}`)}
@@ -140,7 +140,7 @@ function onKey(e: KeyboardEvent) {
       <div class="banner error">
         <b>{t('app.notRunning')}</b>
         {store.errorText}
-        <button class="btn sm" onclick={() => (store.page = 'settings')}>{t('app.openSettings')}</button>
+        <button class="btn sm" onclick={() => store.goto('settings', 'sec-connection')}>{t('app.openSettings')}</button>
       </div>
     {/if}
     {#if store.notice}

@@ -2,6 +2,7 @@
 import type { RequestRecord } from '../../shared/types.ts'
 import { t as tr } from '../lib/i18n.svelte.ts'
 import { store } from '../lib/state.svelte.ts'
+import Hint from './Hint.svelte'
 
 /**
  * The last `windowSec` seconds of traffic as a live waterfall: one bar per
@@ -130,7 +131,15 @@ const ticks = $derived(Array.from({ length: Math.floor(windowSec / 5) + 1 }, (_,
     <div class="more">{tr('wf.more', { n: visible.hidden })}</div>
   {/if}
   {#if !visible.items.length}
-    <div class="idle">{tr('wf.idle', { n: windowSec })}</div>
+    <div class="idle">
+      <p><Hint
+        text={tr('wf.idle', { n: windowSec })}
+        links={{
+          a: { page: 'playground', path: [tr('nav.playground')] },
+          b: { page: 'chaos', section: 'loadgen', path: [tr('nav.chaos'), tr('chaos.loadGen')] },
+        }}
+      /></p>
+    </div>
   {/if}
 </div>
 
@@ -211,6 +220,17 @@ const ticks = $derived(Array.from({ length: Math.floor(windowSec / 5) + 1 }, (_,
     display: grid;
     place-items: center;
     color: var(--muted);
+    text-align: center;
+    padding: 0 16px;
+    /* The chart stays clickable through the message; its links do not. */
     pointer-events: none;
+  }
+  .idle p {
+    margin: 0;
+    max-width: 640px;
+    line-height: 1.7;
+  }
+  .idle :global(.goto) {
+    pointer-events: auto;
   }
 </style>

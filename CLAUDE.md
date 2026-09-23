@@ -98,6 +98,11 @@ scripts/       gen-icon, earlier-defaults, screenshots
 - **Two languages**: every UI string goes through `t()` (`renderer/lib/i18n.svelte.ts`); add
   the key to `locales/en.ts` and `locales/ja.ts` (the typecheck enforces both). `code` and
   **bold** in a string need `<Rich>`. Server, CLI and `.env` comments stay English.
+- **Point to places as the UI names them, and link them**: a hint about something on another
+  page writes the path with the UI's own labels, "Chaos › Load generator" / "障害注入 ›
+  負荷ジェネレーター", and is a link: `<Hint>` puts `<GoTo>` links at `{a}`, `{b}` in the
+  translated text, and `store.goto(page, sectionId)` opens the page, scrolls to the section
+  and highlights it. Plain text (tooltips) still writes the path: 設定 › 接続.
 - **Reproducible replies**: every random choice in replies goes through a `Rng`; with a seed the
   same prompt must give the same text.
 - **Regex speed is the user's responsibility**: a catastrophic pattern can stall the rule

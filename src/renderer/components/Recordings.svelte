@@ -3,6 +3,7 @@ import type { Recording, RecordingSummary } from '../../shared/types.ts'
 import { fmtMs } from '../lib/format.ts'
 import { i18n, t } from '../lib/i18n.svelte.ts'
 import { store } from '../lib/state.svelte.ts'
+import Hint from './Hint.svelte'
 import Icon from './Icon.svelte'
 
 const api = window.mockolla
@@ -40,6 +41,13 @@ $effect(() => {
 })
 const playback = $derived(!!store.config?.replay && store.config.mode !== 'proxy')
 
+/** Settings › Recordings, where recording and playback are turned on. */
+const toRecSettings = () => ({
+  page: 'settings' as const,
+  section: 'sec-recordings',
+  path: [t('nav.settings'), t('set.sec.recordings')],
+})
+
 function when(iso: string): string {
   const d = new Date(iso)
   return Number.isNaN(d.getTime())
@@ -63,11 +71,11 @@ async function removeAll() {
   </div>
   <p class="muted intro">{t('rec.intro')}</p>
   {#if store.recordings.length && !playback}
-    <div class="off">{t('rec.playbackOff')}</div>
+    <div class="off"><Hint text={t('rec.playbackOff')} links={{ a: toRecSettings() }} /></div>
   {/if}
 
   {#if !store.recordings.length}
-    <div class="card empty">{t('rec.empty')}</div>
+    <div class="card empty"><Hint text={t('rec.empty')} links={{ a: toRecSettings() }} /></div>
   {:else}
     <div class="split">
       <section class="card list">

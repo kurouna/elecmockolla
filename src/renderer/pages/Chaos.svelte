@@ -95,7 +95,7 @@ async function saveRate() {
     </section>
   </div>
 
-  <section class="card">
+  <section class="card" id="loadgen">
     <div class="card-head"><h3>{t('chaos.loadGen')}</h3><span class="muted small">{t('chaos.loadGenIntro')}</span></div>
     <div class="card-body">
       <div class="lg">
