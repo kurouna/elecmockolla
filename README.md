@@ -1,3 +1,5 @@
+[![CI](https://github.com/kurouna/elecmockolla/actions/workflows/ci.yml/badge.svg)](https://github.com/kurouna/elecmockolla/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/kurouna/elecmockolla?include_prereleases)](https://github.com/kurouna/elecmockolla/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Zenn](https://img.shields.io/badge/Zenn-kurouna-blue)](https://zenn.dev/kurouna)
 [![X](https://img.shields.io/badge/X-elecxzy-black)](https://x.com/elecxzy)
@@ -8,54 +10,40 @@
 
 A mock [Ollama](https://ollama.com) server with a live dashboard. Point your app at it instead
 of a real model, and get instant, scripted, reproducible replies — for tests, for debugging,
-and for demo videos and screenshots that do not depend on a GPU.
+and for recording demos of your app without a GPU.
 
 Ollama 互換のダミーサーバーと、その動きを見て操作できる管理画面。本物の LLM を待たずに、
-アプリのテスト・動作確認・デモ動画やスクリーンショットの撮影ができます。
+あなたのアプリのテストや動作確認ができ、GPU がなくてもデモを収録できます。
 
 <p align="center">
   <img src="./docs/screenshots/dashboard.png" alt="The dashboard: tokens per second, busy slots and queue charts, four parallel slots streaming, and a waterfall of recent requests">
 </p>
 
-> **v0.0.1 — first version.** Developed on Windows. The server and CLI are plain Node and
-> should run anywhere; the app has not been tried on macOS or Linux yet.
-
-## Quick start
-
-```bash
-npm install
-npm start
-```
-
-That is all: the app opens, writes `.env` and `rules.json` next to `package.json` if they do
-not exist, and starts the mock on `http://127.0.0.1:11434`. Point your app there (or set
-`OLLAMA_HOST`). If the real Ollama already uses 11434, the app says so — change the port in
-**Settings**.
-
-Without the app:
-
-```bash
-npm run serve                     # same server, same .env, logs every request
-npm run serve -- --port 11435 --preset demo
-npm run cli -- init               # write .env and rules.json
-npm run cli -- --help
-```
+> **v0.0.1 — first release.** Developed and used on Windows. The server and CLI are plain Node
+> and run anywhere; the macOS and Linux apps are built and tested on GitHub's runners but have
+> not been tried by hand yet.
 
 ## Install
 
-Or download the app from [Releases](https://github.com/kurouna/elecmockolla/releases):
+Download the app from [Releases](https://github.com/kurouna/elecmockolla/releases):
 
 | Platform | File |
 | --- | --- |
-| Windows x64 / arm64 | `elecmockolla-win-x64-<version>.exe` (installer) or `.zip` (no install) |
+| Windows x64 / arm64 | `elecmockolla-win-x64-<version>.exe` / `elecmockolla-win-arm64-<version>.exe` (installer), or the `.zip` of the same name (no install) |
 | macOS Apple silicon / Intel | `elecmockolla-mac-arm64-<version>.dmg` / `elecmockolla-mac-x64-<version>.dmg` |
 | Linux x64 | `elecmockolla-linux-x86_64-<version>.AppImage` or `elecmockolla-linux-amd64-<version>.deb` |
 | Linux arm64 | `elecmockolla-linux-arm64-<version>.AppImage` or `elecmockolla-linux-arm64-<version>.deb` |
 
+Start it and the mock is listening on `http://127.0.0.1:11434`, Ollama's own address. Point your
+app there (or set `OLLAMA_HOST`). If the real Ollama already uses 11434, the app says so — change
+the port in **Settings**.
+
 The Windows builds are the ones the author runs. The macOS and Linux builds come out of the same
-release workflow and pass the unit and e2e tests on GitHub's runners, but have had no hands-on testing:
-treat them as not sufficiently verified. The packaged app keeps `.env` and `rules.json` in the
-user data folder (see [Settings](#settings)).
+release workflow and pass the unit and e2e tests on GitHub's runners, but have had no hands-on
+testing: treat them as not sufficiently verified.
+
+リリースページからダウンロードして起動すると、Ollama と同じ `http://127.0.0.1:11434` で待ち受けます。
+本物の Ollama が同じ PC で動いている場合は、設定画面でポートを変えてください。
 
 ### If a warning appears
 
@@ -105,6 +93,24 @@ xattr -dr com.apple.quarantine /Applications/elecmockolla.app
 
 インストーラーは未署名のため、Windows と macOS は初回起動時に警告を出します。手順は上のとおりです。
 
+## From source
+
+```bash
+npm install
+npm start
+```
+
+The app opens, writes `.env` and `rules.json` next to `package.json` if they do not exist, and
+starts the mock. Without the app (Node 22.18+):
+
+```bash
+npm run serve                     # same server, same .env, logs every request
+npm run serve -- --port 11435 --preset demo
+npm run cli -- init               # write .env and rules.json
+npm run cli -- check              # validate .env and the rules file
+npm run cli -- --help
+```
+
 ## What makes it different
 
 Other mock servers ([fake-ollama](https://github.com/spoonnotfound/fake-ollama),
@@ -132,7 +138,7 @@ headless. elecmockolla adds what you want while building an app that talks to Ol
   presets from *Instant* (for CI) to *Slow CPU* (for spinners and timeouts), and *Demo*.
 - **Or put the real Ollama behind it.** Proxy mode forwards everything to a real Ollama and
   shows the real traffic on the same dashboard; mixed mode answers from the rules first and
-  sends the rest to Ollama.
+  sends the rest to Ollama. Record the real replies once and play them back without a GPU.
 
 <p align="center">
   <img src="./docs/screenshots/requests.png" alt="The request inspector: every request with its status, model, matched rule and timings, and the selected one's prompt and reply">
@@ -142,10 +148,10 @@ headless. elecmockolla adds what you want while building an app that talks to Ol
 
 | Ollama | OpenAI-compatible | Control (`/_mock/*`) |
 |---|---|---|
-| `POST /api/chat`, `/api/generate` (stream or not, `think`, `format`, `tools`, `num_predict`, `keep_alive`, `seed`) | `POST /v1/chat/completions` (SSE, `stream_options.include_usage`, `response_format`, tool calls) | `GET status`, `requests` (`?format=har` or `json` for a file), `events` (SSE) |
+| `POST /api/chat`, `/api/generate` (stream or not, `think`, `format`, `tools`, `num_predict`, `keep_alive`, `seed`) | `POST /v1/chat/completions` (SSE, `stream_options.include_usage`, `response_format`, tool calls) | `GET status`, `requests` (`?format=har` or `json` for a file), `events` (SSE), `recordings` |
 | `POST /api/embed`, `/api/embeddings` | `POST /v1/completions` | `GET`/`PUT rules` |
 | `GET /api/tags`, `/api/ps`, `/api/version`, `POST /api/show` | `POST /v1/embeddings` (float or base64) | `GET`/`PATCH config` |
-| `POST /api/pull` (simulated progress), `/api/create`, `/api/copy`, `DELETE /api/delete` | `GET /v1/models`, `/v1/models/:id` | `POST fault`, `test`, `reset` |
+| `POST /api/pull` (simulated progress), `/api/create`, `/api/copy`, `DELETE /api/delete` | `GET /v1/models`, `/v1/models/:id` | `POST`/`DELETE fault`, `POST test`, `reset` |
 
 Tested with the official [`ollama`](https://www.npmjs.com/package/ollama) and
 [`openai`](https://www.npmjs.com/package/openai) clients. Embeddings are deterministic and
@@ -153,7 +159,8 @@ similar texts get similar vectors, so retrieval code can be tested too.
 
 ## Replies
 
-Every prompt goes through three stages; the first that matches answers.
+Every prompt goes through three stages; the first that matches answers. (With playback on, a
+recorded prompt is answered from [Recordings](#recordings) before any of them.)
 
 1. **Rules** — `regex`, `contains` or `always`, on the last user message, the whole
    conversation or the system prompt, optionally only for some models. Each rule chooses a reply
@@ -169,12 +176,12 @@ the rule replied with text, a valid document is produced (fake values that follo
 The default `rules.json` starts with one slash command per feature: `/json`, `/code`,
 `/echo …`, `/slow`, `/error`, `/cut`. Then come replies for the conversations an AI chat
 usually has, in Japanese and English: greetings by the time of day (おはよう, good night…),
-"I'm home", fortune-telling and horoscopes (`占って`, `Leo horoscope`), "what is …", "how do I …", comparisons (as a
-table), code (TypeScript or Python), fixing an error, summaries, translation, rewriting, emails,
-recommendations, pros and cons, ideas, poems, stories, jokes, recipes, the date and time, "who
-are you", thanks, goodbyes — and a refusal, to test how your app shows one. Try `hello`,
-`What is Kubernetes?`, `ReactとVueの違いは？`, `東京の天気は？`, `Tell me a joke`. These rules read
-only the first line of the prompt.
+"I'm home", fortune-telling and horoscopes (`占って`, `Leo horoscope`), "what is …", "how do
+I …", comparisons (as a table), code (TypeScript or Python), fixing an error, summaries,
+translation, rewriting, emails, recommendations, pros and cons, ideas, poems, stories, jokes,
+recipes, the date and time, "who are you", thanks, goodbyes — and a refusal, to test how your app
+shows one. Try `hello`, `What is Kubernetes?`, `ReactとVueの違いは？`, `東京の天気は？`,
+`Tell me a joke`. These rules read only the first line of the prompt.
 
 At the end of the list, **off by default**, are rules for the ELEC system pane of
 [elecdex](https://github.com/kurouna/elecdex): each of the three units (LOGOS, ETHOS, PATHOS)
@@ -183,7 +190,9 @@ gets a statement in its own voice and in the motion's language, ending with the 
 `{{int:…}}` the confidence), so the council does not always agree. Turn them on in **Rules**:
 search for `elec`, then **Turn these on**.
 
-The rule list can be searched (name, id, pattern, reply) and filtered by on / off. When a newer
+The tester above the list tries a prompt against the rules being edited, before they are saved,
+and marks the rule that answers. The rule list can be searched (name, id, pattern, reply) and
+filtered by on / off. When a newer
 version brings new built-in rules, the **Rules** page offers them — **Add** puts them in place
 among the others, **Don't add** stops offering them — and your own rules and edits are left as
 they are. Rules you deleted are not brought back (`rules.json` remembers the built-in rules it has
@@ -226,7 +235,7 @@ into a real stream. Parallel slots still apply, so set them at least as high as 
 `OLLAMA_NUM_PARALLEL` to watch without throttling (or lower, to try a smaller machine).
 
 プロキシモードでは本物の Ollama にそのまま中継しつつ、通信をダッシュボードに記録します。
-混在モードはルールに一致したものだけダミーで返し、残りを Ollama に渡します。
+混在モードはルールに一致したものだけダミーで返し、残りを Ollama に渡します（モックにしかないモデルは常にモックが返答します）。
 
 ## Recordings
 
@@ -269,22 +278,29 @@ ignored from the environment, so a machine that runs the real Ollama does not mo
 | `MOCKOLLA_TTFT_MS` / `MOCKOLLA_TPS` / `MOCKOLLA_JITTER` | `350` / `30` / `0.2` | speed (`TPS=0`: no delay) |
 | `MOCKOLLA_LOAD_MS` / `MOCKOLLA_KEEP_ALIVE` | `1200` / `300` | cold model load, seconds loaded |
 | `MOCKOLLA_SEED` | empty | fixed seed for reproducible replies |
+| `MOCKOLLA_CORS` | `*` | `Access-Control-Allow-Origin`, for browser apps; empty = no CORS |
 | `MOCKOLLA_MODELS` / `MOCKOLLA_STRICT_MODELS` | 5 models / `false` | model list; strict = 404 for others |
+| `MOCKOLLA_EMBED_DIM` / `MOCKOLLA_PULL_MS` | `768` / `4000` | embedding length, simulated `/api/pull` time |
+| `MOCKOLLA_VERSION` | `0.12.0` | what `/api/version` reports |
 | `MOCKOLLA_FAULT_RATE` / `MOCKOLLA_FAULT_MODE` | `0` / `random` | random fault injection |
 | `MOCKOLLA_RULES` | `rules.json` | rules file, relative to `.env` |
 | `MOCKOLLA_MODE` / `MOCKOLLA_UPSTREAM` | `mock` / `http://127.0.0.1:11434/v1` | proxy and mixed modes, the real Ollama (its OpenAI URL; `/api/...` goes to the same server) |
 | `MOCKOLLA_RECORD` / `MOCKOLLA_REPLAY` | `false` / `false` | record Ollama's replies, play them back |
 | `MOCKOLLA_RECORDINGS` | `recordings.json` | recordings file, relative to `.env` |
 
-The packaged app keeps its files in the user data folder instead; `MOCKOLLA_HOME` overrides
-the folder in both cases.
+`npm start` and `npm run serve` use the `.env` in the project folder. The installed app keeps
+`.env`, `rules.json` and `recordings.json` in its user data folder (`%APPDATA%\elecmockolla` on
+Windows, `~/Library/Application Support/elecmockolla` on macOS, `~/.config/elecmockolla` on
+Linux); **Settings → Open folder** opens it. `MOCKOLLA_HOME` overrides the folder in both cases.
 
 The app speaks English and Japanese: Japanese when the OS language is Japanese, English
-otherwise. Switch it at the bottom of the sidebar, or start with `MOCKOLLA_LANG=en|ja`.
+otherwise. Switch it at the bottom of the sidebar, or start with `MOCKOLLA_LANG=en|ja`. The
+theme (dark or light) is switched there too, and **Ctrl+1** … **Ctrl+7** open the pages.
 
 <p align="center">
   <img src="./docs/screenshots/settings.png" alt="The settings page: the mode (mock, proxy, mixed), the address to listen on, and the parallel slots and queue">
 </p>
+
 画面は日本語と英語に対応しています（OS の言語が日本語なら日本語）。サイドバー下部で切り替えられます。
 
 ## Using it in tests
@@ -320,9 +336,9 @@ the UI.
 
 ```bash
 npm run verify        # biome + typecheck + vitest
-npm run test:e2e      # build first; drives the app with Playwright
 npm run build         # production bundle into out/
-npm run screenshots   # build first; saves every page to docs/screenshots (MOCKOLLA_LANG=ja for Japanese)
+npm run test:e2e      # build first; Playwright drives the app
+npm run gen:icon      # build/icon.svg -> the PNG icons
 npm run package       # installers into release/
 ```
 
@@ -342,8 +358,8 @@ main. See [CLAUDE.md](CLAUDE.md) for the layout and the rules.
    x64 and arm64).
 4. Review the pre-release and, when it is ready, untick "Set as a pre-release".
 
-[CI](.github/workflows/ci.yml) runs lint, typecheck, the unit tests and the e2e tests (Windows, macOS, Linux) on
-every push to `main` and every pull request, and packages the app for each OS.
+[CI](.github/workflows/ci.yml) runs lint, typecheck, the unit tests and the e2e tests (Windows,
+macOS, Linux) on every push to `main` and every pull request, and packages the app for each OS.
 
 ## License
 
