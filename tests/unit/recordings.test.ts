@@ -111,7 +111,7 @@ describe('recording and playback', () => {
       expect(on.server.monitor.recent().at(-1)?.match?.source).toBe('recording')
 
       await ask(off.url, 'tell me about rivers')
-      expect(off.server.monitor.recent().at(-1)?.match?.source).toBe('fallback')
+      expect(off.server.monitor.recent().at(-1)?.match?.source).not.toBe('recording')
 
       // The same recording answers through the OpenAI API too.
       const openai = new OpenAI({ baseURL: `${on.url}/v1`, apiKey: 'x' })

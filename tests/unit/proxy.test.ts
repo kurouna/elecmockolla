@@ -167,7 +167,7 @@ describe('mixed mode', () => {
       expect((await lastRecord(mixed.server)).match?.source).toBe('rule')
       expect(up.server.monitor.recent()).toHaveLength(0)
 
-      await ollama.generate({ model: 'm', prompt: 'tell me about rivers' })
+      await ollama.generate({ model: 'm', prompt: 'rivers and mountains' })
       expect((await lastRecord(mixed.server)).match?.source).toBe('upstream')
       expect(up.server.monitor.recent()).toHaveLength(1)
     } finally {

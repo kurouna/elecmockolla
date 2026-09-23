@@ -41,9 +41,12 @@ describe('the ELEC system of elecdex', () => {
   beforeAll(async () => {
     const instant = presetById('instant')
     if (!instant) throw new Error('no instant preset')
+    // They ship off and last; turned on, the everyday rules above must not catch a motion.
+    const rules = defaultRules()
+    for (const r of rules.rules) if (r.id.startsWith('elec-')) r.enabled = true
     server = new MockServer({
       config: { ...applyPreset(defaultConfig(), instant), port: 0 },
-      rules: defaultRules(),
+      rules,
     })
     openai = new OpenAI({ baseURL: `${await server.start()}/v1`, apiKey: 'x' })
   })
@@ -63,6 +66,14 @@ describe('the ELEC system of elecdex', () => {
     for await (const c of stream) text += c.choices[0]?.delta.content ?? ''
     return { text, rule: server.monitor.recent().at(-1)?.match?.id }
   }
+
+  it('ships the ELEC rules off, at the end of the list', () => {
+    const ids = defaultRules().rules.map((r) => r.id)
+    const elec = defaultRules().rules.filter((r) => r.id.startsWith('elec-'))
+    expect(elec).toHaveLength(8)
+    expect(elec.every((r) => !r.enabled)).toBe(true)
+    expect(ids.slice(-8)).toEqual(elec.map((r) => r.id))
+  })
 
   it('answers each unit in its own voice, with a vote elecdex can read', async () => {
     for (const unit of UNITS) {

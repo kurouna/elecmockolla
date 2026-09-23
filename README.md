@@ -95,13 +95,21 @@ Templates understand `$1`…`$99`, `$<name>`, `$&`, and `{{prompt}}`, `{{model}}
 `{{time}}`, `{{now}}`, `{{n}}`. When the client asks for `format: "json"` or a JSON schema and
 the rule replied with text, a valid document is produced (fake values that follow the schema).
 
-The default `rules.json` has one example of each: try `hello`, `my name is Alice`,
-`東京の天気は？`, `/json`, `/code`, `/echo …`, `/slow`, `/error`, `/cut`.
+The default `rules.json` starts with one slash command per feature: `/json`, `/code`,
+`/echo …`, `/slow`, `/error`, `/cut`. Then come replies for the conversations an AI chat
+usually has, in Japanese and English: greetings by the time of day (おはよう, good night…),
+"I'm home", fortune-telling and horoscopes (`占って`, `Leo horoscope`), "what is …", "how do I …", comparisons (as a
+table), code (TypeScript or Python), fixing an error, summaries, translation, rewriting, emails,
+recommendations, pros and cons, ideas, poems, stories, jokes, recipes, the date and time, "who
+are you", thanks, goodbyes — and a refusal, to test how your app shows one. Try `hello`,
+`What is Kubernetes?`, `ReactとVueの違いは？`, `東京の天気は？`, `Tell me a joke`. These rules read
+only the first line of the prompt.
 
-It also answers the ELEC system pane of [elecdex](https://github.com/kurouna/elecdex): each of
-the three units (LOGOS, ETHOS, PATHOS) gets a statement in its own voice and in the motion's
-language, ending with the `VERDICT:` and `CONFIDENCE:` lines elecdex reads. Each unit leans its
-own way, so the council does not always agree; the second round has replies of its own.
+At the end of the list, **off by default**, are rules for the ELEC system pane of
+[elecdex](https://github.com/kurouna/elecdex): each of the three units (LOGOS, ETHOS, PATHOS)
+gets a statement in its own voice and in the motion's language, ending with the `VERDICT:` and
+`CONFIDENCE:` lines elecdex reads. Each unit leans its own way (`{{pick:…}}` chooses the verdict,
+`{{int:…}}` the confidence), so the council does not always agree. Turn them on in **Rules**.
 
 <p align="center">
   <img src="./docs/screenshots/rules.png" width="49%" alt="The rules editor with a regex rule, its reply template and a live tester">
