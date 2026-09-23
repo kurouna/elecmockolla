@@ -4,6 +4,11 @@ import type { BrowserWindow } from 'electron'
 
 const PAGES = ['dashboard', 'requests', 'playground', 'rules', 'models', 'chaos', 'settings']
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/** Shown instead of the real settings folder, which names the user. */
+const SHOWN_HOME =
+  process.platform === 'win32'
+    ? 'C:\\Users\\you\\AppData\\Roaming\\elecmockolla'
+    : '/home/you/.config/elecmockolla'
 
 /**
  * Screenshot mode (MOCKOLLA_CAPTURE=<dir>, see scripts/screenshots.mjs):
@@ -14,11 +19,22 @@ export async function capturePages(
   win: BrowserWindow,
   dir: string,
   startTraffic: () => void,
+  home: string,
 ): Promise<void> {
   mkdirSync(dir, { recursive: true })
   win.showInactive()
   const js = (code: string) => win.webContents.executeJavaScript(code, true)
+  // Replaces the settings folder in every text and field on the page, so no shot shows it.
+  const hide = `(() => {
+    const from = ${JSON.stringify(home)}, to = ${JSON.stringify(SHOWN_HOME)}
+    const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+    for (let n = walk.nextNode(); n; n = walk.nextNode())
+      if (n.nodeValue.includes(from)) n.nodeValue = n.nodeValue.split(from).join(to)
+    for (const el of document.querySelectorAll('input, textarea'))
+      if (el.value.includes(from)) el.value = el.value.split(from).join(to)
+  })()`
   const shot = async (name: string) => {
+    await js(hide)
     // Force a fresh frame: capturePage returns the last painted one.
     win.webContents.invalidate()
     await js('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))')

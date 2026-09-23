@@ -486,7 +486,7 @@ app.whenReady().then(async () => {
       void loadGen.run(host.serverUrl, models, opts, (s) => send(CH.loadGenStatus, s))
     }
     w.once('ready-to-show', () => {
-      void capturePages(w, path.resolve(captureDir), traffic).finally(() => app.quit())
+      void capturePages(w, path.resolve(captureDir), traffic, HOME).finally(() => app.quit())
     })
   }
 })
