@@ -76,6 +76,10 @@ const CASES: [prompt: string, rule: string][] = [
   ['Explain recursion', 'explain-en'],
   ['今何時？', 'time-ja'],
   ['What time is it?', 'time-en'],
+  ['あなたの名前は？', 'myname-ja'],
+  ['お名前を教えて', 'myname-ja'],
+  ['名前は？', 'myname-ja'],
+  ["What's your name?", 'myname-en'],
   ['あなたは誰？', 'identity-ja'],
   ['What can you do?', 'identity-en'],
   ['元気ですか？', 'howareyou-ja'],
@@ -116,6 +120,8 @@ describe('everyday chat rules', () => {
     expect(plan('How do I undo a git commit?').text).toContain('how to undo a git commit')
     expect(plan('おひつじ座の今日の運勢は？').text).toContain('**おひつじ座** の今日の運勢')
     expect(plan('Scorpio horoscope please').text).toContain('horoscope for **Scorpio**')
+    expect(plan('あなたの名前は？').text).toContain('**elecmockolla**')
+    expect(plan("What's your name?").text).toContain('**elecmockolla**')
     expect(plan('占いして').text).toMatch(/\*\*(大吉|中吉|小吉|吉|末吉|凶)\*\*/)
   })
 

@@ -111,7 +111,14 @@ At the end of the list, **off by default**, are rules for the ELEC system pane o
 [elecdex](https://github.com/kurouna/elecdex): each of the three units (LOGOS, ETHOS, PATHOS)
 gets a statement in its own voice and in the motion's language, ending with the `VERDICT:` and
 `CONFIDENCE:` lines elecdex reads. Each unit leans its own way (`{{pick:…}}` chooses the verdict,
-`{{int:…}}` the confidence), so the council does not always agree. Turn them on in **Rules**.
+`{{int:…}}` the confidence), so the council does not always agree. Turn them on in **Rules**:
+search for `elec`, then **Turn these on**.
+
+The rule list can be searched (name, id, pattern, reply) and filtered by on / off. When a newer
+version brings new built-in rules, the **Rules** page offers them — **Add** puts them in place
+among the others, **Don't add** stops offering them — and your own rules and edits are left as
+they are. Rules you deleted are not brought back (`rules.json` remembers the built-in rules it has
+seen in `seenDefaults`).
 
 <p align="center">
   <img src="./docs/screenshots/rules.png" width="49%" alt="The rules editor with a regex rule, its reply template and a live tester">

@@ -113,6 +113,12 @@ export interface RulesFile {
   rules: Rule[]
   keywords: KeywordEntry[]
   fallback: ResponseSpec
+  /**
+   * Ids of the built-in rules and keywords this file has already been offered, taken or
+   * not, so a newer version offers only what is new - and never brings back one the user
+   * deleted. Missing in files older than this field: then every id in the file counts.
+   */
+  seenDefaults?: string[]
 }
 
 export type Api =

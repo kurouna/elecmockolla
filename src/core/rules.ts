@@ -22,7 +22,7 @@ const LANGS: readonly LoremLang[] = ['auto', 'en', 'ja']
  * everyday chat (default-rules.ts), and the ELEC system of elecdex, off, at the end.
  */
 export function defaultRules(): RulesFile {
-  return {
+  const rules: RulesFile = {
     version: 1,
     rules: [
       {
@@ -132,6 +132,55 @@ export function defaultRules(): RulesFile {
     ],
     fallback: { kind: 'lorem', text: '', lang: 'auto', minWords: 20, maxWords: 60 },
   }
+  return { ...rules, seenDefaults: defaultIds(rules) }
+}
+
+const defaultIds = (r: RulesFile): string[] => [
+  ...r.rules.map((x) => x.id),
+  ...r.keywords.map((k) => k.id),
+]
+
+/** Built-in rules and keywords a rules file has not been offered yet. */
+export function missingDefaults(
+  current: RulesFile,
+  defaults: RulesFile = defaultRules(),
+): { rules: Rule[]; keywords: KeywordEntry[] } {
+  const seen = new Set(current.seenDefaults ?? defaultIds(current))
+  for (const id of defaultIds(current)) seen.add(id)
+  return {
+    rules: defaults.rules.filter((r) => !seen.has(r.id)),
+    keywords: defaults.keywords.filter((k) => !seen.has(k.id)),
+  }
+}
+
+/**
+ * Offers the new built-in rules to a rules file: with `add`, they are put where they
+ * stand among the defaults (after the nearest default before them that the file has,
+ * else first), so the order still makes sense; without, they are only marked as seen.
+ * Either way the user's own rules and edits stay as they are.
+ */
+export function takeDefaults(
+  current: RulesFile,
+  add: boolean,
+  defaults: RulesFile = defaultRules(),
+): RulesFile {
+  const missing = missingDefaults(current, defaults)
+  const rules = [...current.rules]
+  if (add)
+    for (const rule of missing.rules) {
+      const at = defaults.rules.indexOf(rule)
+      let after = -1
+      for (let i = at - 1; i >= 0 && after < 0; i--) {
+        const id = defaults.rules[i]?.id
+        after = rules.findIndex((r) => r.id === id)
+      }
+      rules.splice(after + 1, 0, structuredClone(rule))
+    }
+  const keywords = add
+    ? [...current.keywords, ...missing.keywords.map((k) => ({ ...k }))]
+    : [...current.keywords]
+  const seen = new Set([...(current.seenDefaults ?? defaultIds(current)), ...defaultIds(defaults)])
+  return { ...current, rules, keywords, seenDefaults: [...seen] }
 }
 
 // --- validation -------------------------------------------------------------
@@ -235,7 +284,12 @@ export function normalizeRules(v: unknown): RulesFile {
     if (ids.has(r.id)) throw new RulesError(`duplicate rule id "${r.id}"`)
     ids.add(r.id)
   }
-  return { version: 1, rules, keywords, fallback }
+  const out: RulesFile = { version: 1, rules, keywords, fallback }
+  if (Array.isArray(v.seenDefaults))
+    out.seenDefaults = [
+      ...new Set(v.seenDefaults.filter((x): x is string => typeof x === 'string')),
+    ].slice(0, 5000)
+  return out
 }
 
 export function parseRules(json: string): RulesFile {

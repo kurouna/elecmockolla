@@ -1,4 +1,5 @@
 <script lang="ts">
+import { missingDefaults, takeDefaults } from '../../core/rules.ts'
 import type { FaultMode, Rule, RulesFile, TestResult } from '../../shared/types.ts'
 import Icon from '../components/Icon.svelte'
 import Recordings from '../components/Recordings.svelte'
@@ -28,6 +29,49 @@ let selId = $state<string | null>(initial.rules[0]?.id ?? null)
 let testPrompt = $state('hello')
 let testModel = $state('llama3.2:3b')
 let result = $state<TestResult | null>(null)
+
+// --- search and filter (the list only: numbering, order and moving stay on the full list)
+let query = $state('')
+let only = $state<'all' | 'on' | 'off'>('all')
+const q = $derived(query.trim().toLowerCase())
+const shown = $derived(
+  draft.rules.filter((r) => {
+    if (only === 'on' && !r.enabled) return false
+    if (only === 'off' && r.enabled) return false
+    if (!q) return true
+    return `${r.name} ${r.id} ${r.match.pattern} ${r.match.model ?? ''} ${r.response.text} ${r.response.toolName ?? ''}`
+      .toLowerCase()
+      .includes(q)
+  }),
+)
+const filtering = $derived(q !== '' || only !== 'all')
+/** Turns every rule the filter shows on or off: e.g. search "elec", then all on. */
+function setShown(enabled: boolean) {
+  for (const r of shown) r.enabled = enabled
+}
+let kwQuery = $state('')
+const kwShown = $derived.by(() => {
+  const f = kwQuery.trim().toLowerCase()
+  return f
+    ? draft.keywords.filter((k) => `${k.keyword} ${k.reply}`.toLowerCase().includes(f))
+    : draft.keywords
+})
+
+// --- built-in rules added in a newer version, not yet offered to this file
+let defaults = $state.raw<RulesFile | null>(null)
+void api.defaultRules().then((d) => {
+  defaults = d
+})
+const offer = $derived(
+  defaults ? missingDefaults($state.snapshot(draft) as RulesFile, defaults) : null,
+)
+const offerCount = $derived(offer ? offer.rules.length + offer.keywords.length : 0)
+function takeOffer(add: boolean) {
+  if (!defaults) return
+  const n = offerCount
+  draft = takeDefaults($state.snapshot(draft) as RulesFile, add, defaults)
+  store.flash(add ? t('rules.newAdded', { n }) : t('rules.newSkipped'), 'info')
+}
 
 const dirty = $derived(JSON.stringify(draft) !== JSON.stringify(store.rules))
 const sel = $derived(draft.rules.find((r) => r.id === selId))
@@ -154,6 +198,17 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
     <button class="btn sm primary" onclick={save} disabled={!dirty}><Icon name="save" size={13} />{t('common.save')}{dirty ? ' *' : ''}</button>
   </div>
 
+  {#if offer && offerCount && tab !== 'recordings'}
+    <div class="note offer">
+      <span class="grow">
+        {t('rules.newOffer', { n: offerCount })}
+        <span class="names">{[...offer.rules.map((r) => r.name), ...offer.keywords.map((k) => `"${k.keyword}"`)].join(', ')}</span>
+      </span>
+      <button class="btn sm primary" onclick={() => takeOffer(true)}><Icon name="plus" size={12} />{t('rules.newAdd')}</button>
+      <button class="btn sm ghost" onclick={() => takeOffer(false)}>{t('rules.newSkip')}</button>
+    </div>
+  {/if}
+
   {#if tab === 'recordings'}
     <!-- The recordings tab explains itself. -->
   {:else if store.config?.mode === 'proxy'}
@@ -186,10 +241,28 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
     <div class="split">
       <section class="card list">
         <div class="lhead">
-          <button class="btn sm" onclick={addRule}><Icon name="plus" size={13} />{t('rules.add')}</button>
+          <div class="row">
+            <button class="btn sm" onclick={addRule}><Icon name="plus" size={13} />{t('rules.add')}</button>
+            <span class="grow"></span>
+            <div class="seg">
+              {#each ['all', 'on', 'off'] as const as o (o)}
+                <button class:on={only === o} onclick={() => (only = o)}>{t(`rules.only.${o}`)}</button>
+              {/each}
+            </div>
+          </div>
+          <input class="input search" bind:value={query} placeholder={t('rules.search')} />
+          {#if filtering}
+            <div class="row filtered">
+              <span class="muted">{t('rules.shownOf', { n: shown.length, total: draft.rules.length })}</span>
+              <span class="grow"></span>
+              <button class="btn sm ghost" disabled={!shown.length} onclick={() => setShown(true)}>{t('rules.allOn')}</button>
+              <button class="btn sm ghost" disabled={!shown.length} onclick={() => setShown(false)}>{t('rules.allOff')}</button>
+            </div>
+          {/if}
         </div>
         <div class="items">
-          {#each draft.rules as r, i (r.id)}
+          {#each shown as r (r.id)}
+            {@const i = draft.rules.indexOf(r)}
             {@const err = r.match.kind === 'regex' ? regexError(r.match.pattern, r.match.flags) : ''}
             <div class="item" class:on={r.id === selId} class:off={!r.enabled} class:hit={r.id === hitId}>
               <input type="checkbox" bind:checked={r.enabled} title={t('rules.enabled')} />
@@ -201,7 +274,7 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
               {#if r.id === hitId}<span class="chip violet">{t('rules.hit')}</span>{/if}
             </div>
           {:else}
-            <div class="empty">{t('rules.noRules')}</div>
+            <div class="empty">{filtering ? t('rules.noMatch') : t('rules.noRules')}</div>
           {/each}
         </div>
       </section>
@@ -290,6 +363,7 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
     <section class="card kw">
       <div class="card-body">
         <p class="muted intro"><Rich text={t('rules.kwIntro')} /></p>
+        <input class="input search" bind:value={kwQuery} placeholder={t('rules.kwSearch')} />
         <table class="grid">
           <thead>
             <tr>
@@ -297,12 +371,12 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
             </tr>
           </thead>
           <tbody>
-            {#each draft.keywords as k, i (k.id)}
+            {#each kwShown as k (k.id)}
               <tr class:hit={result?.match.source === 'keyword' && result.match.id === k.id}>
                 <td><input type="checkbox" bind:checked={k.enabled} /></td>
                 <td><input class="input mono" bind:value={k.keyword} placeholder="？" /></td>
                 <td><input class="input" bind:value={k.reply} placeholder={t('rules.kwReplyText')} /></td>
-                <td><button class="btn sm icon ghost" onclick={() => draft.keywords.splice(i, 1)} title={t('common.delete')}><Icon name="x" size={13} /></button></td>
+                <td><button class="btn sm icon ghost" onclick={() => draft.keywords.splice(draft.keywords.indexOf(k), 1)} title={t('common.delete')}><Icon name="x" size={13} /></button></td>
               </tr>
             {/each}
           </tbody>
@@ -399,8 +473,31 @@ const hitId = $derived(result?.match.source === 'rule' ? result.match.id : null)
     flex-direction: column;
   }
   .lhead {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     padding: 10px;
     border-bottom: 1px solid var(--line);
+  }
+  .search {
+    width: 100%;
+  }
+  .kw .search {
+    margin-bottom: 10px;
+  }
+  .filtered {
+    font-size: 11.5px;
+  }
+  .offer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .offer .names {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    opacity: 0.85;
   }
   .items {
     overflow: auto;

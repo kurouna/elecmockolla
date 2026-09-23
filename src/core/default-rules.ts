@@ -118,6 +118,18 @@ const CHAT: Intent[] = [
       "Nice to meet you too! I'm {{model}}, a mock model served by elecmockolla.",
     ],
   },
+  {
+    id: 'myname',
+    name: 'Your name?',
+    ja: [
+      String.raw`^[^\n]*(?:あなた|君|きみ|おまえ)の(?:お)?名前|^\s*(?:お)?名前(?:は|を教えて|なに|何)`,
+      '{{pick:わたしの名前は|名前は}} **elecmockolla** です。{{pick:よろしくお願いします。|何でも聞いてください。|モックの AI ですが、お役に立てれば幸いです。}}',
+    ],
+    en: [
+      String.raw`^[^\n]*\b(?:what(?:'s| is) your name|your name\??\s*$|who am i (?:talking|speaking) (?:to|with))`,
+      "{{pick:My name is|I'm}} **elecmockolla**. {{pick:Nice to meet you.|Ask me anything.|A mock AI, but happy to help.}}",
+    ],
+  },
   // Fortune-telling: with a star sign when one is named, else a plain fortune.
   {
     id: 'horoscope',
