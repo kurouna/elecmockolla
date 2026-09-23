@@ -471,7 +471,8 @@ export const ja: Record<Key, string> = {
   'models.vram': 'VRAM {size}',
   'models.unreachable': 'Ollama に接続できません: {error}',
   'models.mock': 'モックのモデル',
-  'models.mockMixed': '混在モードでルールやキーワードが返答するときに使います。ここにだけあるモデルは、常にモックが返答します。',
+  'models.mockMixed':
+    '混在モードでルールやキーワードが返答するときに使います。ここにだけあるモデルは、常にモックが返答します。',
 
   // Recordings
   'source.recording': '録画',

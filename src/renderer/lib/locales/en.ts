@@ -466,7 +466,8 @@ export const en = {
   'models.vram': 'VRAM {size}',
   'models.unreachable': 'Ollama is not reachable: {error}',
   'models.mock': 'Mock models',
-  'models.mockMixed': 'Used when a rule or keyword answers in mixed mode. A model only listed here is always answered by the mock.',
+  'models.mockMixed':
+    'Used when a rule or keyword answers in mixed mode. A model only listed here is always answered by the mock.',
 
   // Recordings
   'source.recording': 'recording',
