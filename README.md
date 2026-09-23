@@ -98,6 +98,11 @@ the rule replied with text, a valid document is produced (fake values that follo
 The default `rules.json` has one example of each: try `hello`, `my name is Alice`,
 `東京の天気は？`, `/json`, `/code`, `/echo …`, `/slow`, `/error`, `/cut`.
 
+It also answers the ELEC system pane of [elecdex](https://github.com/kurouna/elecdex): each of
+the three units (LOGOS, ETHOS, PATHOS) gets a statement in its own voice and in the motion's
+language, ending with the `VERDICT:` and `CONFIDENCE:` lines elecdex reads. Each unit leans its
+own way, so the council does not always agree; the second round has replies of its own.
+
 <p align="center">
   <img src="./docs/screenshots/rules.png" width="49%" alt="The rules editor with a regex rule, its reply template and a live tester">
   <img src="./docs/screenshots/requests.png" width="49%" alt="The request inspector: a list of requests and the selected one's prompt, reply and timings">

@@ -17,10 +17,101 @@ const RESPONSE_KINDS: readonly ResponseKind[] = ['template', 'lorem', 'json', 'e
 const LANGS: readonly LoremLang[] = ['auto', 'en', 'ja']
 
 /** The rules a fresh install starts with: one of each feature, handy for demos. */
+/**
+ * Replies for the ELEC system pane of elecdex: three units (LOGOS, ETHOS, PATHOS)
+ * vote on a motion over the OpenAI chat API. Each unit is told who it is in the
+ * system prompt ("You are UNIT-1 LOGOS.") and gets "MOTION:\n..." as the user
+ * message; the second round adds the others' statements and "vote again". A reply
+ * is a short statement in the motion's language, then two lines elecdex reads:
+ * "VERDICT: APPROVE|REJECT|ABSTAIN" and "CONFIDENCE: 0-100". Each unit leans its
+ * own way, so the council does not always agree.
+ *
+ * These come first: a motion like "明日の天気で..." must not reach the weather tool.
+ */
+const JA = '[\\u3040-\\u30ff\\u3400-\\u9fff]'
+const VOTE = (verdicts: string, confidence: string) =>
+  `\n\nVERDICT: {{pick:${verdicts}}}\nCONFIDENCE: {{int:${confidence}}}`
+
+interface ElecUnit {
+  code: string
+  name: string
+  verdicts: string
+  confidence: string
+  ja: string
+  en: string
+}
+
+const ELEC_UNITS: ElecUnit[] = [
+  {
+    code: 'UNIT-1',
+    name: 'LOGOS',
+    // The scientist: even-handed, sure only when the facts are.
+    verdicts: 'APPROVE|APPROVE|APPROVE|REJECT|REJECT|REJECT|ABSTAIN',
+    confidence: '45-92',
+    ja: 'LOGOS として、この議案を根拠・実現可能性・コスト・リスクの面から検討しました。{{pick:測定できる根拠はある程度そろっていますが、長期的な効果には不確かさが残ります。|想定される利点ははっきりしていますが、コストとリスクの見積もりには幅があります。|論理としては筋が通っていますが、前提となるデータが十分とは言えません。|実現の手段は具体的で、失敗したときの損失も見積もれます。}}{{pick:希望的観測を除いて判断しました。|数字で説明できる範囲で判断しました。|検証できる事実を優先して判断しました。}}',
+    en: 'As LOGOS, I weighed this motion on evidence, feasibility, cost and risk. {{pick:The measurable evidence is reasonable, but the long-term effect is still uncertain.|The benefits are clear, while the estimates of cost and risk vary widely.|The reasoning holds, but the data it rests on is thin.|The means are concrete, and the loss if it fails can be estimated.}} {{pick:Setting wishful thinking aside, this is my verdict.|I judged it on what the numbers can support.|I gave weight to what can be verified.}}',
+  },
+  {
+    code: 'UNIT-2',
+    name: 'ETHOS',
+    // The guardian: cautious, rejects more often than not.
+    verdicts: 'APPROVE|APPROVE|REJECT|REJECT|REJECT|ABSTAIN',
+    confidence: '50-95',
+    ja: 'ETHOS として、この議案が誰に影響し、その結果を誰が負うのかを考えました。{{pick:関わる人への公平さは概ね保たれますが、立場の弱い人への配慮が十分かが気がかりです。|今の人々だけでなく、将来の人々への責任も考える必要があります。|義務と公正さの観点では、手続きの透明性が鍵になります。|約束を守り、迷惑を掛けないという点では筋が通っています。}}{{pick:それが正しいかどうかを基準に判断しました。|影響を受ける人の立場から判断しました。|長い目で見た責任を重く見て判断しました。}}',
+    en: 'As ETHOS, I asked whom this motion touches and who bears its consequences. {{pick:It is broadly fair, but I am not sure the most vulnerable are protected.|We owe something not only to people now but to those who come later.|On duty and fairness, the key is whether the process is transparent.|It keeps faith with the promises made and harms no one who has not agreed.}} {{pick:I judged it by whether it is right.|I judged it from the side of those it affects.|I gave weight to the long-term responsibility.}}',
+  },
+  {
+    code: 'UNIT-3',
+    name: 'PATHOS',
+    // The heart: follows the gut, approves more often than not.
+    verdicts: 'APPROVE|APPROVE|APPROVE|APPROVE|REJECT|REJECT|ABSTAIN',
+    confidence: '35-90',
+    ja: 'PATHOS として、この決断がそれと共に生きる人にとって何を意味するかを感じ取ろうとしました。{{pick:数字には表れない期待と不安が、どちらも強く感じられます。|直感は、この決断が本当の気持ちに沿うかどうかを問うています。|やりたいという気持ちは確かにありますが、迷いも残っています。|これを選べば、後で振り返ったときに後悔は少ないはずです。}}{{pick:数字が語らないところは、直感を信じます。|最後は心の声に従いました。|気持ちの重さを大切にして判断しました。}}',
+    en: 'As PATHOS, I tried to feel what this decision means to the person who lives with it. {{pick:There is hope and worry here that no number shows.|My instinct asks whether this is what they truly want.|The wish to do it is real, and so is the doubt.|Choose this, and there will be little to regret looking back.}} {{pick:Where the numbers are silent, I trust the gut.|In the end I followed the heart.|I gave weight to how much it matters to them.}}',
+  },
+]
+
+export function elecRules(): Rule[] {
+  const round2 = (lang: 'ja' | 'en'): Rule => ({
+    id: `elec-round2-${lang}`,
+    name: `ELEC · round 2 (${lang})`,
+    enabled: true,
+    match: {
+      kind: 'regex',
+      target: 'all',
+      pattern:
+        lang === 'ja'
+          ? `You are UNIT-\\d (?<unit>[A-Z]+)\\.[\\s\\S]*MOTION:\\n(?=[\\s\\S]*${JA})[\\s\\S]*vote again`
+          : 'You are UNIT-\\d (?<unit>[A-Z]+)\\.[\\s\\S]*MOTION:\\n[\\s\\S]*vote again',
+    },
+    response: {
+      kind: 'template',
+      text:
+        (lang === 'ja'
+          ? '$<unit> として、他のユニットの第1ラウンドの意見を読み直しました。{{pick:新しい論点には一理ありますが、私の見立てを覆すほどではありません。|指摘された懸念はもっともで、判断を見直しました。|意見は分かれていますが、自分の立場から改めて判断します。}}'
+          : "As $<unit>, I have read the other units' statements from the first round. {{pick:Their points have merit, but not enough to overturn my view.|The concerns they raise are fair, and I have reconsidered.|We disagree, so I judge again from my own standpoint.}}") +
+        VOTE('APPROVE|APPROVE|REJECT|REJECT|ABSTAIN', '45-95'),
+    },
+  })
+  const unit = (u: ElecUnit, lang: 'ja' | 'en'): Rule => ({
+    id: `elec-${u.name.toLowerCase()}-${lang}`,
+    name: `ELEC · ${u.name} (${lang})`,
+    enabled: true,
+    match: {
+      kind: 'regex',
+      target: 'all',
+      pattern: `You are ${u.code} ${u.name}\\.[\\s\\S]*MOTION:\\n${lang === 'ja' ? `(?=[\\s\\S]*${JA})` : ''}`,
+    },
+    response: { kind: 'template', text: u[lang] + VOTE(u.verdicts, u.confidence) },
+  })
+  return [round2('ja'), round2('en'), ...ELEC_UNITS.flatMap((u) => [unit(u, 'ja'), unit(u, 'en')])]
+}
+
 export function defaultRules(): RulesFile {
   return {
     version: 1,
     rules: [
+      ...elecRules(),
       {
         id: 'greeting',
         name: 'Greeting',
