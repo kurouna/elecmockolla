@@ -66,6 +66,15 @@ export async function capturePages(
   for (const [i, name] of PAGES.entries()) {
     if (i < 3) continue
     await open(i)
+    if (name === 'rules') {
+      // The tester starts empty; try a prompt so the shot shows which rule answers and how.
+      await js(`(() => {
+        const input = document.querySelector('.tester input')
+        input.value = 'hello'
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })()`)
+      await wait(600)
+    }
     await shot(name)
     if (name === 'rules') {
       // The recordings tab: the last button of the tab bar.

@@ -27,7 +27,7 @@ const initial = clone(store.rules)
 let draft = $state<RulesFile>(initial)
 let tab = $state<'rules' | 'keywords' | 'fallback' | 'recordings'>('rules')
 let selId = $state<string | null>(initial.rules[0]?.id ?? null)
-let testPrompt = $state('hello')
+let testPrompt = $state('')
 let testModel = $state('llama3.2:3b')
 let result = $state<TestResult | null>(null)
 /** Only the newest test answer is shown; an older one arriving late is dropped. */
@@ -112,6 +112,11 @@ $effect(() => {
   const input = { prompt: testPrompt, model: testModel }
   const rules = $state.snapshot(draft)
   const seq = ++testSeq
+  // Nothing typed, nothing to try: no result and no highlighted rule.
+  if (!input.prompt.trim()) {
+    result = null
+    return
+  }
   const t = setTimeout(async () => {
     const r = await api.testRules(input, rules)
     if (seq === testSeq) result = r
