@@ -444,7 +444,7 @@ export const en = {
   'app.upstreamDown': 'Ollama at {url} is not reachable: {error}',
   'set.upstream': 'OpenAI-compatible URL',
   'set.upstreamHelp':
-    'The real Ollama that proxy and mixed modes forward to: its OpenAI-compatible URL, ending in /v1. Ollama API requests (/api/...) go to the same server.',
+    'Where proxy and mixed modes forward to, as OpenAI clients take it: a real Ollama ends in /v1, another server may not (Gemini: …/v1beta/openai). /v1/... requests go under it; Ollama API requests (/api/...) go to the same server.',
   'set.upstreamOk': 'Connected: Ollama {version}, {models} models, {loaded} loaded',
   'set.upstreamOkOpenai':
     'Connected through /v1 only: {models} models (no Ollama API here, so no loaded models or VRAM)',
@@ -457,6 +457,11 @@ export const en = {
   'set.upstreamKeyHelp':
     'For an endpoint that needs one. Sent as "Authorization: Bearer …" in place of what the app sends; empty passes the app\'s own header on. Kept in .env as plain text.',
   'set.upstreamKeyNone': 'none',
+  'set.modelMap': 'Model names',
+  'set.modelMapHelp':
+    "The model sent upstream in place of the one the app asks for, as app=upstream pairs separated by commas; * stands for any other model. Replies keep the upstream's name.",
+  'set.modelMapDropped':
+    '{n} pair(s) will be ignored: write app=upstream, without spaces, each app model once.',
   'set.portClash':
     'This server and Ollama cannot share port {port}. Give this server another port (e.g. 11435) and point your app at it.',
   'pg.toOllama': 'Ollama answers',

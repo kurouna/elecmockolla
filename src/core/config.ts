@@ -35,6 +35,7 @@ export function defaultConfig(): MockConfig {
     mode: 'mock',
     upstream: 'http://127.0.0.1:11434/v1',
     upstreamKey: '',
+    modelMap: [],
     record: false,
     replay: false,
     recordingsPath: 'recordings.json',
@@ -55,11 +56,31 @@ export const maskKey = (c: MockConfig): MockConfig =>
   c.upstreamKey ? { ...c, upstreamKey: KEY_MASK } : c
 
 /**
- * The server behind an upstream URL. The upstream is given the way OpenAI-style
- * clients take it, ending in /v1; Ollama's own API (/api/...) and every forwarded
- * path hang off the server root. A URL without /v1 is its own root.
+ * The server behind an upstream URL, where Ollama's own API (/api/...) lives. The
+ * upstream is given the way OpenAI-style clients take it (Ollama's ends in /v1); a URL
+ * without /v1 is its own root.
  */
 export const upstreamRoot = (upstream: string): string => upstream.replace(/\/v1\/?$/, '')
+
+/**
+ * The OpenAI base URL behind an upstream: the URL itself, as OpenAI clients take it, so one
+ * that does not end in /v1 (Gemini's .../v1beta/openai) works too. A bare origin is a server
+ * root with its OpenAI API under /v1, as Ollama's is.
+ */
+export const openaiBase = (upstream: string): string =>
+  /^[a-z][a-z0-9+.-]*:\/\/[^/]+\/./i.test(upstream)
+    ? upstream.replace(/\/+$/, '')
+    : `${upstream}/v1`
+
+/**
+ * Where a client's path and query go upstream: /v1/... under the OpenAI base, anything else
+ * (Ollama's /api/...) under the server root.
+ */
+export function upstreamUrl(upstream: string, path: string): string {
+  return /^\/v1(?=[/?]|$)/.test(path)
+    ? `${openaiBase(upstream)}${path.slice(3)}`
+    : `${upstreamRoot(upstream)}${path}`
+}
 
 /** "localhost:11434" or "http://host:port/" -> "http://host:port"; '' when it is not an http(s) URL. */
 export function normalizeUpstream(v: string): string {
@@ -138,11 +159,15 @@ export const ENV_KEYS: { [K in keyof MockConfig]: { key: string; doc: string } }
   },
   upstream: {
     key: 'MOCKOLLA_UPSTREAM',
-    doc: 'The real Ollama for proxy and mixed modes, as OpenAI clients take it (ending in /v1).',
+    doc: 'Where proxy and mixed modes forward to, as OpenAI clients take it: Ollama ends in /v1, others may not (Gemini: .../v1beta/openai).',
   },
   upstreamKey: {
     key: 'MOCKOLLA_UPSTREAM_KEY',
     doc: 'API key for the upstream, sent as "Authorization: Bearer ...". Empty = no key.',
+  },
+  modelMap: {
+    key: 'MOCKOLLA_MODEL_MAP',
+    doc: "Model names sent upstream instead of the app's: app=upstream pairs, comma-separated; * = any other model.",
   },
   record: {
     key: 'MOCKOLLA_RECORD',
@@ -279,6 +304,8 @@ export function applyEnv(base: MockConfig, env: Record<string, string | undefine
     // biome-ignore lint/suspicious/noControlCharactersInRegex: exactly what must not be in a header
     if (!/[\u0000-\u001f\u007f]/.test(k)) c.upstreamKey = k
   }
+  const modelMap = get('modelMap')
+  if (modelMap !== undefined) c.modelMap = parseModelMap(modelMap)
   const record = get('record')
   if (record !== undefined) c.record = bool(record)
   const replay = get('replay')
@@ -286,6 +313,40 @@ export function applyEnv(base: MockConfig, env: Record<string, string | undefine
   const recordings = get('recordingsPath')
   if (recordings) c.recordingsPath = recordings
   return c
+}
+
+/**
+ * The "app=upstream" pairs of a comma-separated list. A pair without both names, with a space
+ * or a quote in one, or for a name already mapped, is dropped.
+ */
+export function parseModelMap(v: string): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const part of v.split(',')) {
+    const i = part.indexOf('=')
+    const from = part.slice(0, i).trim()
+    const to = part.slice(i + 1).trim()
+    if (i < 0 || !from || !to || /[\s"'=]/.test(from + to) || seen.has(from)) continue
+    seen.add(from)
+    out.push(`${from}=${to}`)
+  }
+  return out
+}
+
+/** Ollama treats "name" and "name:latest" as one model. */
+const bareModel = (m: string): string => m.replace(/:latest$/, '')
+
+/** The model name to send upstream for `model`: its own pair, else "*", else unchanged. */
+export function mapModel(map: readonly string[], model: string): string {
+  if (!model) return model
+  let any = ''
+  for (const pair of map) {
+    const i = pair.indexOf('=')
+    const from = pair.slice(0, i)
+    if (bareModel(from) === bareModel(model)) return pair.slice(i + 1)
+    if (from === '*') any = pair.slice(i + 1)
+  }
+  return any || model
 }
 
 /** Validates a partial config from the UI or the control API. */

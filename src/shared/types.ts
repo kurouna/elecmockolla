@@ -58,6 +58,12 @@ export interface MockConfig {
    * Ollama usually sends none or a placeholder.
    */
   upstreamKey: string
+  /**
+   * Model names sent upstream in place of the app's, as "app=upstream" pairs; "*" on the left
+   * stands for any other model. Applies to forwarded requests only: the reply keeps the
+   * upstream's own model name, and records, rules and recordings use the app's.
+   */
+  modelMap: string[]
   /** Save every reply the real Ollama gives (proxy and mixed modes) to the recordings file. */
   record: boolean
   /** Answer recorded prompts with the recorded reply (mock and mixed modes). */
@@ -156,6 +162,8 @@ export interface MatchInfo {
   source: 'rule' | 'keyword' | 'fallback' | 'upstream' | 'recording'
   id?: string
   name: string
+  /** 'upstream' only: the model name sent upstream, when the model map changed it. */
+  model?: string
 }
 
 /**

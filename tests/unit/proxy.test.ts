@@ -444,3 +444,123 @@ describe('an upstream that needs an API key', () => {
     }
   })
 })
+
+describe('an OpenAI base that does not end in /v1, and the model map', () => {
+  /** Like Gemini's OpenAI-compatible endpoint: everything under /v1beta/openai. */
+  let gem: ReturnType<typeof createServer>
+  let base: string
+  const got: { path: string; body: string }[] = []
+
+  beforeAll(async () => {
+    gem = createServer((req, res) => {
+      let body = ''
+      req.on('data', (c: Buffer) => {
+        body += c.toString()
+      })
+      req.on('end', () => {
+        if (req.url === '/v1beta/openai/models') {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end('{"object":"list","data":[{"id":"gemini-x"}]}')
+          return
+        }
+        if (req.url === '/v1beta/openai/chat/completions') {
+          got.push({ path: req.url, body })
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(
+            JSON.stringify({
+              id: 'g1',
+              object: 'chat.completion',
+              created: 0,
+              model: 'gemini-x',
+              choices: [
+                {
+                  index: 0,
+                  message: { role: 'assistant', content: 'from gemini' },
+                  finish_reason: 'stop',
+                },
+              ],
+              usage: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+            }),
+          )
+          return
+        }
+        res.writeHead(404).end()
+      })
+    })
+    await new Promise<void>((r) => gem.listen(0, '127.0.0.1', r))
+    base = `http://127.0.0.1:${(gem.address() as AddressInfo).port}/v1beta/openai`
+  })
+  afterAll(() => {
+    gem.close()
+  })
+
+  it('sends the client /v1/... under that base and finds the models there', async () => {
+    const { server, url } = await startServer({ mode: 'proxy', upstream: base })
+    try {
+      await server.upstream.poll()
+      expect(server.snapshot(false).upstream).toMatchObject({
+        ok: true,
+        api: 'openai',
+        models: ['gemini-x'],
+      })
+      const openai = new OpenAI({ baseURL: `${url}/v1`, apiKey: 'x' })
+      const r = await openai.chat.completions.create({
+        model: 'gemini-x',
+        messages: [{ role: 'user', content: 'hi' }],
+      })
+      expect(r.choices[0]?.message.content).toBe('from gemini')
+      expect(got.at(-1)?.path).toBe('/v1beta/openai/chat/completions')
+    } finally {
+      await server.stop()
+    }
+  })
+
+  it("sends the mapped model upstream, and keeps the app's name everywhere else", async () => {
+    const { server, url } = await startServer({
+      mode: 'proxy',
+      upstream: base,
+      modelMap: ['llama3.2:3b=gemini-x'],
+    })
+    try {
+      const r = await fetch(`${url}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'llama3.2:3b', messages: [{ role: 'user', content: 'hi' }] }),
+      })
+      // The reply is the upstream's own, model name included.
+      const reply = (await r.json()) as { model: string }
+      expect(reply.model).toBe('gemini-x')
+      expect(JSON.parse(got.at(-1)?.body ?? '{}')).toMatchObject({
+        model: 'gemini-x',
+        messages: [{ role: 'user', content: 'hi' }],
+      })
+      const rec = await lastRecord(server)
+      expect(rec.model).toBe('llama3.2:3b')
+      expect(rec.match).toMatchObject({ source: 'upstream', model: 'gemini-x' })
+      expect(rec.requestBody).toMatchObject({ model: 'llama3.2:3b' })
+    } finally {
+      await server.stop()
+    }
+  })
+
+  it('forwards the exact bytes of a request the map does not touch', async () => {
+    const { server, url } = await startServer({
+      mode: 'proxy',
+      upstream: base,
+      modelMap: ['other=gemini-x'],
+    })
+    try {
+      // Spacing and key order a re-serialised body would lose.
+      const body = '{ "messages" : [ {"role":"user","content":"hi"} ], "model":"gemini-x" }'
+      await fetch(`${url}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body,
+      })
+      expect(got.at(-1)?.body).toBe(body)
+      expect((await lastRecord(server)).match?.model).toBeUndefined()
+    } finally {
+      await server.stop()
+    }
+  })
+})

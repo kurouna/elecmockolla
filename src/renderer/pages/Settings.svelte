@@ -4,6 +4,7 @@ import {
   KEY_MASK,
   maskKey,
   normalizeUpstream,
+  parseModelMap,
   SERVER_MODES,
   serializeEnv,
 } from '../../core/config.ts'
@@ -21,6 +22,7 @@ const initial = structuredClone($state.snapshot(store.config) as MockConfig)
 let form = $state<MockConfig>(initial)
 let seedText = $state(initial.seed === null ? '' : String(initial.seed))
 let modelsText = $state(initial.models.join(', '))
+let mapText = $state(initial.modelMap.join(', '))
 
 // Follow outside changes (Chaos, Models) while the form is untouched.
 let base = store.config
@@ -30,6 +32,7 @@ $effect(() => {
     form = structuredClone($state.snapshot(store.config))
     seedText = form.seed === null ? '' : String(form.seed)
     modelsText = form.models.join(', ')
+    mapText = form.modelMap.join(', ')
   }
   base = next
 })
@@ -43,8 +46,13 @@ function current(): MockConfig {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
+    modelMap: parseModelMap(mapText),
   }
 }
+/** Pairs typed but not usable (no "=", a space, a name mapped twice): they would be dropped. */
+const mapDropped = $derived(
+  mapText.split(',').filter((s) => s.trim()).length - parseModelMap(mapText).length,
+)
 
 const dirty = $derived(!sameData(current(), store.config))
 const restartNeeded = $derived(form.host !== store.config?.host || form.port !== store.config?.port)
@@ -82,6 +90,7 @@ function revert() {
   form = structuredClone($state.snapshot(store.config))
   seedText = form.seed === null ? '' : String(form.seed)
   modelsText = form.models.join(', ')
+  mapText = form.modelMap.join(', ')
 }
 function onKey(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
@@ -257,6 +266,23 @@ function modeKey(e: KeyboardEvent) {
                 bind:value={form.upstreamKey}
                 onfocus={selectMask}
               />
+            </div>
+          </div>
+          <div class="row sub">
+            <div class="lab">
+              <b>{t('set.modelMap')}</b>
+              <small>{t('set.modelMapHelp')}</small>
+            </div>
+            <div class="ctl wide">
+              <input
+                class="input mono"
+                class:invalid={mapDropped > 0}
+                spellcheck="false"
+                aria-label={t('set.modelMap')}
+                placeholder="llama3.2:3b=gemini-2.5-flash, *=gpt-4o-mini"
+                bind:value={mapText}
+              />
+              {#if mapDropped > 0}<div class="status"><span class="chip red">{t('set.modelMapDropped', { n: mapDropped })}</span></div>{/if}
             </div>
           </div>
           {#if portClash}<div class="warn">{t('set.portClash', { port: form.port })}</div>{/if}

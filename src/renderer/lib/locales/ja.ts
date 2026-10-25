@@ -450,7 +450,7 @@ export const ja: Record<Key, string> = {
   'app.upstreamDown': '{url} の Ollama に接続できません: {error}',
   'set.upstream': 'OpenAI 互換 URL',
   'set.upstreamHelp':
-    'プロキシ・混在モードの転送先となる本物の Ollama の OpenAI 互換 URL（/v1 付き）。Ollama API（/api/…）も同じサーバーに送ります。',
+    'プロキシ・混在モードの転送先を、OpenAI クライアントに渡す形の URL で指定します。本物の Ollama なら /v1 で終わり、ほかのサーバーではそうとは限りません（Gemini: …/v1beta/openai）。/v1/… のリクエストはその下へ、Ollama API（/api/…）は同じサーバーへ送ります。',
   'set.upstreamOk': '接続中: Ollama {version}・モデル {models} 個・ロード済み {loaded} 個',
   'set.upstreamOkOpenai':
     '/v1 のみで接続中: モデル {models} 個（Ollama API がないため、ロード状況と VRAM は表示できません）',
@@ -463,6 +463,11 @@ export const ja: Record<Key, string> = {
   'set.upstreamKeyHelp':
     'キーが必要な転送先向け。アプリが送るものの代わりに「Authorization: Bearer …」として送ります。空ならアプリのヘッダをそのまま渡します。.env には平文で保存されます。',
   'set.upstreamKeyNone': 'なし',
+  'set.modelMap': 'モデル名の置き換え',
+  'set.modelMapHelp':
+    'アプリが指定したモデルの代わりに転送先へ送るモデル名。アプリ側=転送先 の組をカンマで区切って書きます。* はそれ以外のすべてのモデル。応答のモデル名は転送先のままです。',
+  'set.modelMapDropped':
+    '{n} 件は無視されます: アプリ側=転送先 の形で、空白を入れず、同じアプリ側のモデルは一度だけ書いてください。',
   'set.portClash':
     'このサーバーと Ollama は同じポート {port} を使えません。このサーバーを別のポート（例: 11435）にして、アプリの接続先をそちらに向けてください。',
   'pg.toOllama': 'Ollama が返答',

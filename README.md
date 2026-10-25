@@ -276,14 +276,28 @@ uses it too, so the server shows as connected rather than `401`. Left empty, you
 `Authorization` header passes through as before.
 
 The key is stored in `.env` as plain text. The window, the `.env` preview and the control API
-(`/_mock/config`) only ever show `••••••••`, and sending that mask back keeps the key. Such a
-server usually answers only OpenAI-style requests (`/v1/...`), not Ollama's `/api/...`, and
-your app has to ask for a model name the server knows.
+(`/_mock/config`) only ever show `••••••••`, and sending that mask back keeps the key.
+
+The upstream URL is the base URL an OpenAI client would take. Your app's `/v1/...` requests go
+under it, so a base that does not end in `/v1` works too — Gemini's is
+`https://generativelanguage.googleapis.com/v1beta/openai`. Ollama's `/api/...` go to the
+server root (the URL without its `/v1`). Such a server answers only OpenAI-style requests, not
+Ollama's `/api/...`.
+
+Its models have their own names. **Settings › Mode › Model names** (`MOCKOLLA_MODEL_MAP`)
+renames the model on the way: `llama3.2:3b=gemini-2.5-flash, *=gemini-2.5-flash-lite` sends
+`gemini-2.5-flash` when your app asks for `llama3.2:3b`, and the other model for anything
+else. Only the request going upstream changes; the reply keeps the upstream's model name,
+while the dashboard, rules and recordings keep your app's (the inspector shows the name that
+was sent).
 
 鍵が必要な OpenAI 互換サーバーへ転送するときは、**設定 › 動作モード › API キー** か
 `MOCKOLLA_UPSTREAM_KEY` を設定します。アプリが送るものの代わりに `Authorization: Bearer …`
 として送り、接続確認にも使います。空ならアプリ自身のヘッダをそのまま渡します。鍵は `.env`
 に平文で保存され、画面・`.env` プレビュー・制御 API には `••••••••` としか表示されません。
+転送先 URL は OpenAI クライアントに渡すベース URL で、`/v1` で終わらなくても構いません（Gemini は
+`…/v1beta/openai`）。**設定 › 動作モード › モデル名の置き換え**（`MOCKOLLA_MODEL_MAP`）で、
+アプリが指定するモデル名を転送先のモデル名に置き換えて送れます（`*` はそれ以外すべて）。
 
 ## Recordings
 
@@ -332,8 +346,9 @@ ignored from the environment, so a machine that runs the real Ollama does not mo
 | `MOCKOLLA_VERSION` | `0.12.0` | what `/api/version` reports |
 | `MOCKOLLA_FAULT_RATE` / `MOCKOLLA_FAULT_MODE` | `0` / `random` | random fault injection |
 | `MOCKOLLA_RULES` | `rules.json` | rules file, relative to `.env` |
-| `MOCKOLLA_MODE` / `MOCKOLLA_UPSTREAM` | `mock` / `http://127.0.0.1:11434/v1` | proxy and mixed modes, the real Ollama (its OpenAI URL; `/api/...` goes to the same server) |
+| `MOCKOLLA_MODE` / `MOCKOLLA_UPSTREAM` | `mock` / `http://127.0.0.1:11434/v1` | proxy and mixed modes, where to forward (its OpenAI base URL; `/v1/...` goes under it, `/api/...` to the same server) |
 | `MOCKOLLA_UPSTREAM_KEY` | empty | API key sent upstream as `Authorization: Bearer …`; empty = pass the app's own header on |
+| `MOCKOLLA_MODEL_MAP` | empty | model names sent upstream instead: `app=upstream` pairs, comma-separated; `*` = any other |
 | `MOCKOLLA_RECORD` / `MOCKOLLA_REPLAY` | `false` / `false` | record Ollama's replies, play them back |
 | `MOCKOLLA_RECORDINGS` | `recordings.json` | recordings file, relative to `.env` |
 

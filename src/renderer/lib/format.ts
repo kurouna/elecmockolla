@@ -69,7 +69,9 @@ export function statusChip(r: RequestRecord): { label: string; cls: string } {
 
 /** "rule: greeting", with the source in the UI language; "→ Ollama" for proxied replies. */
 export const matchLabel = (m: MatchInfo): string =>
-  m.source === 'upstream' ? `→ ${t('source.upstream')}` : `${t(`source.${m.source}`)}: ${m.name}`
+  m.source === 'upstream'
+    ? `→ ${t('source.upstream')}${m.model ? ` (${m.model})` : ''}`
+    : `${t(`source.${m.source}`)}: ${m.name}`
 
 export function fmtBytes(n: number): string {
   if (!n) return '0 B'

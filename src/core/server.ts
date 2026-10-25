@@ -11,7 +11,7 @@ import type {
   TestInput,
   TestResult,
 } from '../shared/types.ts'
-import { maskKey, patchConfig } from './config.ts'
+import { mapModel, maskKey, patchConfig } from './config.ts'
 import { Engine, type Plan, type Prompt } from './engine.ts'
 import { EXPORT_FORMATS, exportRequests } from './export.ts'
 import {
@@ -1096,6 +1096,11 @@ export class MockServer {
         // Not JSON: forward it anyway and let Ollama answer.
       }
       const obj = isObj(body) ? body : {}
+      // The app's model, renamed for the upstream by the model map. Only the request going
+      // upstream changes: rules, records and recordings keep the app's name.
+      const asked = str(obj.model)
+      const sent = mapModel(this.config.modelMap, asked)
+      const out = sent === asked ? raw : Buffer.from(JSON.stringify({ ...obj, model: sent }))
       const generative = api !== 'embed' && api !== 'openai-embed'
       const parsed = generative ? parseRequest(api, obj) : null
       if (this.config.mode === 'mixed' && parsed && !parsed.empty) {
@@ -1104,9 +1109,7 @@ export class MockServer {
         const plan = this.engine.plan(parsed.prompt)
         // A mock-only model the real Ollama does not have is answered here, fallback included.
         const mockOnly =
-          !!this.upstream.info?.ok &&
-          !this.upstreamHas(parsed.prompt.model) &&
-          this.knows(parsed.prompt.model)
+          !!this.upstream.info?.ok && !this.upstreamHas(sent) && this.knows(parsed.prompt.model)
         if (plan.match.source !== 'fallback' || mockOnly)
           return await this.generate(api, req, res, body, plan)
       }
@@ -1118,13 +1121,13 @@ export class MockServer {
           method,
           path: forwardPath(req),
           headers: req.headers,
-          body: raw,
+          body: out,
           res,
           signal,
         })
         return
       }
-      await this.forwardRecorded(api, req, res, raw, obj, parsed, signal)
+      await this.forwardRecorded(api, req, res, out, obj, sent, parsed, signal)
     } catch (e) {
       if (e instanceof HttpError) fail(res, e.status, e.message)
       else if (e instanceof UpstreamError) fail(res, 502, e.message)
@@ -1139,6 +1142,7 @@ export class MockServer {
     res: ServerResponse,
     raw: Buffer,
     body: Obj,
+    sent: string,
     parsed: Parsed | null,
     signal: AbortSignal,
   ): Promise<void> {
@@ -1154,6 +1158,7 @@ export class MockServer {
       body,
     )
     rec.match = { source: 'upstream', name: new URL(this.config.upstream).host }
+    if (sent !== model) rec.match.model = sent
     const input = body.input ?? body.prompt
     rec.promptTokens = parsed
       ? countTokens(parsed.prompt.all)
@@ -1165,7 +1170,7 @@ export class MockServer {
     // An error of the proxy itself (the upstream is unreachable) answers 502 Bad Gateway.
     await this.inSlot(rec, res, signal, fail, 502, async () => {
       try {
-        await this.relay(api, req, res, raw, parsed, signal, rec, model)
+        await this.relay(api, req, res, raw, parsed, signal, rec, sent)
       } finally {
         void this.upstream.poll()
       }

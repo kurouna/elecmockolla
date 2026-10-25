@@ -50,8 +50,9 @@ do not repeat these lines.
 
 - Wire compatibility first: a change to any response shape must keep the official `ollama`
   and `openai` client tests passing.
-- Proxied bytes are never rewritten. In proxy and mixed modes the reply reaches the client as
-  Ollama sent it; faults cut a reply, they never edit it.
+- Proxied replies are never rewritten. In proxy and mixed modes the reply reaches the client
+  as the upstream sent it; faults cut a reply, they never edit it. On the way up, only the
+  model map may change a request (its `model`).
 - `.env` through `src/core/config.ts` is the only source of settings: the UI edits it, the CLI
   reads it.
 - The renderer is untrusted and offline. Network and files live in main, which validates every

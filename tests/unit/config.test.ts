@@ -6,11 +6,15 @@ import {
   applyEnv,
   defaultConfig,
   KEY_MASK,
+  mapModel,
   maskKey,
+  openaiBase,
   parseEnv,
+  parseModelMap,
   patchConfig,
   serializeEnv,
   upstreamRoot,
+  upstreamUrl,
 } from '../../src/core/config.ts'
 import { loadConfig } from '../../src/core/files.ts'
 import { embed, parseKeepAlive } from '../../src/core/models.ts'
@@ -173,5 +177,68 @@ describe('upstream key', () => {
     expect(env.MOCKOLLA_UPSTREAM_KEY).toBe(key)
     expect(applyEnv(defaultConfig(), env).upstreamKey).toBe(key)
     expect(serializeEnv(maskKey(withKey))).not.toContain(key)
+  })
+})
+
+describe('upstream paths', () => {
+  it('sends /v1/... under the OpenAI base and the rest to the server root', () => {
+    const cases: [string, string, string][] = [
+      ['http://h:11434/v1', '/v1/chat/completions', 'http://h:11434/v1/chat/completions'],
+      ['http://h:11434/v1', '/api/chat', 'http://h:11434/api/chat'],
+      ['http://h:11434', '/v1/models', 'http://h:11434/v1/models'],
+      ['http://h:11434', '/api/tags', 'http://h:11434/api/tags'],
+      ['https://gpu/ollama/v1', '/api/ps', 'https://gpu/ollama/api/ps'],
+      // Gemini's OpenAI base does not end in /v1: the client's /v1 is replaced by it.
+      [
+        'https://generativelanguage.googleapis.com/v1beta/openai',
+        '/v1/chat/completions',
+        'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+      ],
+      ['https://g/v1beta/openai', '/v1/models?page=2', 'https://g/v1beta/openai/models?page=2'],
+      // Only a /v1 segment counts, not a path that merely starts with it.
+      ['https://g/v1beta/openai', '/v1beta/x', 'https://g/v1beta/openai/v1beta/x'],
+    ]
+    for (const [up, path, want] of cases) expect(upstreamUrl(up, path)).toBe(want)
+  })
+
+  it('takes a bare origin as a server root with its OpenAI API under /v1', () => {
+    expect(openaiBase('http://h:11434')).toBe('http://h:11434/v1')
+    expect(openaiBase('http://h:11434/v1')).toBe('http://h:11434/v1')
+    expect(openaiBase('https://g/v1beta/openai')).toBe('https://g/v1beta/openai')
+  })
+})
+
+describe('model map', () => {
+  it('keeps app=upstream pairs and drops the ones it cannot use', () => {
+    expect(parseModelMap(' llama3.2:3b = gemini-2.5-flash ,*=gpt-x')).toEqual([
+      'llama3.2:3b=gemini-2.5-flash',
+      '*=gpt-x',
+    ])
+    expect(parseModelMap('no-equals, =to, from=, a b=c, a=b=c, x="y"')).toEqual([])
+    // A name mapped twice keeps its first pair.
+    expect(parseModelMap('m=a,m=b')).toEqual(['m=a'])
+    expect(parseModelMap('')).toEqual([])
+  })
+
+  it('round-trips through .env and the UI', () => {
+    const c = applyEnv(defaultConfig(), { MOCKOLLA_MODEL_MAP: 'm=a,*=b' })
+    expect(c.modelMap).toEqual(['m=a', '*=b'])
+    expect(applyEnv(defaultConfig(), parseEnv(serializeEnv(c))).modelMap).toEqual(['m=a', '*=b'])
+    expect(patchConfig(c, { modelMap: ['x=y'] }).modelMap).toEqual(['x=y'])
+    expect(patchConfig(c, { modelMap: [] }).modelMap).toEqual([])
+    expect(defaultConfig().modelMap).toEqual([])
+  })
+
+  it('renames a model by its own pair first, then by *, and leaves the rest', () => {
+    const map = ['*=fallback-model', 'llama3.2:3b=gemini-2.5-flash', 'qwen=q-cloud']
+    expect(mapModel(map, 'llama3.2:3b')).toBe('gemini-2.5-flash')
+    // Ollama's "name" and "name:latest" are one model.
+    expect(mapModel(map, 'qwen:latest')).toBe('q-cloud')
+    expect(mapModel(['qwen:latest=q'], 'qwen')).toBe('q')
+    expect(mapModel(map, 'mistral')).toBe('fallback-model')
+    expect(mapModel(['m=a'], 'other')).toBe('other')
+    expect(mapModel([], 'm')).toBe('m')
+    // No model at all is not renamed into one.
+    expect(mapModel(map, '')).toBe('')
   })
 })

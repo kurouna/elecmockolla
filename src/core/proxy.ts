@@ -10,7 +10,7 @@ import http, {
 } from 'node:http'
 import https from 'node:https'
 import type { Api, ReportedTimings, UpstreamInfo } from '../shared/types.ts'
-import { upstreamRoot } from './config.ts'
+import { openaiBase, upstreamRoot, upstreamUrl } from './config.ts'
 import { normalizeModel } from './models.ts'
 
 /** Marks forwarded requests. A request that comes back with it is a proxy loop. */
@@ -208,8 +208,7 @@ export interface ForwardResult {
 
 /** Sends one request upstream and streams the reply to `res`. */
 export function forward(o: ForwardOptions): Promise<ForwardResult> {
-  // The client's path is kept whole: /v1/chat/completions and /api/chat both go to the root.
-  const target = new URL(`${upstreamRoot(o.upstream)}${o.path}`)
+  const target = new URL(upstreamUrl(o.upstream, o.path))
   const headers: Record<string, string | string[]> = {}
   for (const [k, v] of Object.entries(o.headers))
     if (v !== undefined && !HOP_BY_HOP.has(k.toLowerCase())) headers[k] = v
@@ -331,9 +330,9 @@ export function forward(o: ForwardOptions): Promise<ForwardResult> {
 /**
  * Polls the real Ollama for its version, models and loaded models.
  *
- * The upstream URL is its OpenAI-compatible one (ending in /v1); Ollama's own API
- * lives at the server root. Ollama answers /api/tags; a server that does not (LM
- * Studio, llama.cpp, a proxy exposing only /v1) is still live if /v1/models answers.
+ * The upstream URL is its OpenAI base (see openaiBase); Ollama's own API lives at the
+ * server root. Ollama answers /api/tags; a server that does not (LM Studio, llama.cpp,
+ * a hosted OpenAI-compatible API) is still live if its /models answers.
  * /api/ps is optional: when it fails, which models are loaded is unknown (null),
  * not "none".
  */
@@ -425,8 +424,7 @@ export class UpstreamWatch {
             : null,
       }
     } else {
-      const v1 = url === root ? `${root}/v1` : url
-      const [models] = await Promise.allSettled([getJson(`${v1}/models`, key)])
+      const [models] = await Promise.allSettled([getJson(`${openaiBase(url)}/models`, key)])
       next =
         models.status === 'fulfilled'
           ? {

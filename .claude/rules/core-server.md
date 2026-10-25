@@ -21,6 +21,10 @@ series), `proxy.ts` (proxy/mixed modes: forwarding, reply parsing, upstream poll
 
 - A proxied reply is read from a copy: `ReplyReader` parses it for the record while the
   client gets the upstream's bytes.
+- `upstreamUrl` decides where a path goes: `/v1/...` under `openaiBase` (the upstream URL,
+  which need not end in /v1), anything else under `upstreamRoot`. `mapModel` renames the
+  request's model for the upstream only; a request it leaves alone is forwarded byte for byte,
+  and rules, records and recordings keep the app's model name.
 - Durations in Ollama replies are nanoseconds. Real Ollama semantics win: a conversation
   ending in a `tool` message gets words, not the same tool call again (`Prompt.afterTool`).
 - `tests/unit/parallel.test.ts` measures parallel slots in mock and proxy modes. A shared
