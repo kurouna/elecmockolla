@@ -5,7 +5,8 @@ MIT. Developed on Windows. Repository: github.com/kurouna/elecmockolla (branch `
 
 Area-specific guidance lives in `.claude/rules/` and loads when you open a matching file:
 `core-server.md`, `builtin-rules.md` (the reply rules the mock serves), `main-ipc.md`,
-`renderer-ui.md`, `tests.md`, `release.md`.
+`renderer-ui.md`, `tests.md`, `release.md`. Read `release.md` yourself before a release, a
+dependency update or new screenshots: those start with a shell command, which loads nothing.
 
 ## Commands
 
@@ -44,7 +45,8 @@ scripts/       gen-icon, earlier-defaults, screenshots
 
 ## Invariants
 
-These hold across the whole repository; `.claude/rules/` has the details per area.
+These hold across the whole repository. The rule files add the details for their area and
+do not repeat these lines.
 
 - Wire compatibility first: a change to any response shape must keep the official `ollama`
   and `openai` client tests passing.
@@ -54,8 +56,8 @@ These hold across the whole repository; `.claude/rules/` has the details per are
   reads it.
 - The renderer is untrusted and offline. Network and files live in main, which validates every
   IPC argument; never expose a generic channel.
-- Requests are truly parallel: N requests on N slots take as long as one. Never serialize
-  request handling behind a shared lock, timer or capped agent.
+- Requests are truly parallel: N requests on N slots take as long as one, so nothing may
+  serialize request handling.
 - Replies are reproducible: every random choice goes through an `Rng`, so a seed makes the same
   prompt give the same text.
 - Two languages: every UI string goes through `t()` with a key in both locales. Server, CLI
@@ -65,6 +67,6 @@ These hold across the whole repository; `.claude/rules/` has the details per are
 
 - Commit and push only when asked. Messages: `type(scope): English / 日本語`, body lines
   English / 日本語.
-- Run `npm run verify` before a commit. UI or main changes also need `npm run build` and
-  `npm run test:e2e`, which run against the built app.
-- New code gets unit tests in the matching `tests/unit` file, including what must NOT happen.
+- Run `npm run verify` before a commit; after UI or main changes also `npm run build`, then
+  `npm run test:e2e`.
+- New code gets unit tests in the matching `tests/unit` file, including what must not happen.

@@ -5,23 +5,26 @@ paths:
 
 # src/renderer - the Svelte 5 UI
 
-The renderer is untrusted and offline: sandboxed, CSP `connect-src 'self'`. Network and files
-live in main, reached only through `window.mockolla`.
+Sandboxed, with CSP `connect-src 'self'`: everything outside the page goes through
+`window.mockolla`. Paths below are relative to `src/renderer`.
 
 - `lib/state.svelte.ts` is the single store. Server snapshots arrive every 200 ms as
   `$state.raw` - replace them, never mutate.
-- Do not import `core/rules.ts` or `core/default-rules.ts` here: that would bundle every
-  built-in rule. Main sends them instead. `core/config.ts` is safe (no node imports).
+- Of `src/core`, import only `config.ts` and `rules-merge.ts`: neither touches Node or holds
+  rule text. `core/rules.ts` or `core/default-rules.ts` would bundle every built-in rule, so
+  main sends those instead.
 - Long lists draw a bounded number of rows; recordings arrive as summaries, and one full
   recording is fetched when it is shown.
-- A page with unsaved edits sets `store.leaveGuard`, and the shell (`App.svelte`) asks the
-  user about the switch it held back. Never `window.confirm`: Chromium can suppress repeated
-  dialogs, which would refuse navigation with nothing on screen. Nothing may fail silently.
+- Leaving a page with unsaved edits: the page sets `store.leaveGuard`, and the shell
+  (`App.svelte`) asks in its own dialog. Not `window.confirm`: Chromium can suppress repeated
+  dialogs, and the click would then do nothing with no reason on screen. An action the app
+  refuses always says why. (Deleting all recordings in `components/Recordings.svelte` still
+  uses `confirm`; there a suppressed dialog only cancels the deletion.)
 - Whether a draft differs from what main stored is `sameData` (`lib/equal.ts`), not
   `JSON.stringify`: key order and an absent-versus-undefined field are not edits.
-- Two languages: every UI string goes through `t()` (`lib/i18n.svelte.ts`) with the key added
-  to both `locales/en.ts` and `locales/ja.ts` - the typecheck enforces both. `code` and
-  **bold** inside a string need `<Rich>`.
+- `t()` is in `lib/i18n.svelte.ts`; each key goes in both `lib/locales/en.ts` and
+  `lib/locales/ja.ts`, and the typecheck enforces both. `code` and **bold** inside a string
+  need `<Rich>`.
 - Point to places as the UI names them, and link them: a hint about another page writes the
   path with the UI's own labels ("Chaos › Load generator" / "障害注入 › 負荷ジェネレーター").
   `<Hint>` puts `<GoTo>` links at `{a}`, `{b}` in the translated text, and

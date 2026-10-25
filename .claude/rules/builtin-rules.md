@@ -21,7 +21,7 @@ what the reply claims it is (明日 is not a city).
 
 Every new rule needs a sample prompt in `tests/unit/rule-cases.ts`; `rule-coverage.test.ts`
 fails for a built-in rule without one or for one an earlier rule shadows. Add prompts the new
-rule must NOT catch to `chat-rules.test.ts`.
+rule must not catch to `chat-rules.test.ts`.
 
 Changes reach existing rules.json files through the Rules page offer (`rules-merge.ts`): a new
 id is offered as new, a changed built-in rule only to files that still hold an earlier version

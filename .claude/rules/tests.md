@@ -12,10 +12,9 @@ chat-rules and rule-coverage, defaults, upgrade, config, files, cli (spawns
 `src/core/cli.ts`), client (main's playground and load generator), export, elec, renderer
 (the renderer's dependency-free helpers, such as `lib/equal.ts`).
 
-`tests/e2e` is Playwright driving the built app, so run `npm run build` first; each spec
-starts the app with its own folder and port. `tests/fixtures/rules-v0.0.1.json` is a rules
-file a released version wrote, for the upgrade tests.
+`tests/e2e` is Playwright on the built app; each spec starts the app with its own folder and
+port, and `support.ts` has `launch()` and `open()`. `tests/fixtures/rules-v0.0.1.json` is a
+rules file a released version wrote, for the upgrade tests.
 
-New code gets tests in the matching file, including what must NOT happen. To find gaps:
-`npm i --no-save @vitest/coverage-v8@<vitest version>` then
+To find gaps: `npm i --no-save @vitest/coverage-v8@<vitest version>` then
 `npx vitest run --coverage --coverage.provider=v8 --coverage.include='src/core/**'`.
