@@ -2,6 +2,7 @@
 import type { RequestRecord } from '../../shared/types.ts'
 import { t as tr } from '../lib/i18n.svelte.ts'
 import { store } from '../lib/state.svelte.ts'
+import { waterfallMoving } from '../lib/waterfall.ts'
 import Hint from './Hint.svelte'
 
 /**
@@ -18,13 +19,14 @@ const AXIS = 18
 let width = $state(600)
 let now = $state(Date.now())
 
-/** Bars move only while something runs or a finished bar is still inside the window. */
-const moving = $derived.by(() => {
-  const s = store.snapshot
-  if (s?.active.length) return true
-  const from = (s?.now ?? Date.now()) - windowSec * 1000
-  return store.history.some((r) => r.t.ended >= from)
-})
+const moving = $derived(
+  waterfallMoving(
+    store.snapshot?.active.length ?? 0,
+    store.history,
+    store.snapshot?.now ?? Date.now(),
+    windowSec,
+  ),
+)
 
 $effect(() => {
   if (!moving) {

@@ -564,3 +564,134 @@ describe('an OpenAI base that does not end in /v1, and the model map', () => {
     }
   })
 })
+
+describe('proxy fixes from the v0.0.5 review', () => {
+  let upstream: MockServer
+  let upUrl: string
+  /** Ollama behind a path prefix, as a reverse proxy would put it. */
+  let gateway: ReturnType<typeof createServer>
+  let gwUrl: string
+  const seenPaths: string[] = []
+  const shown: string[] = []
+
+  beforeAll(async () => {
+    const u = await startServer()
+    upstream = u.server
+    upUrl = u.url
+    gateway = createServer((req, res) => {
+      const path = (req.url ?? '').replace(/^\/ollama/, '')
+      seenPaths.push(path)
+      let body = ''
+      req.on('data', (c: Buffer) => {
+        body += c.toString()
+      })
+      req.on('end', () => {
+        if (path === '/api/show') shown.push(body)
+        void fetch(`${upUrl}${path}`, {
+          method: req.method ?? 'GET',
+          headers: { 'content-type': 'application/json' },
+          body: req.method === 'GET' || req.method === 'HEAD' ? null : body,
+        }).then(async (r) => {
+          res.writeHead(r.status, { 'content-type': r.headers.get('content-type') ?? '' })
+          res.end(Buffer.from(await r.arrayBuffer()))
+        })
+      })
+    })
+    await new Promise<void>((r) => gateway.listen(0, '127.0.0.1', r))
+    gwUrl = `http://127.0.0.1:${(gateway.address() as AddressInfo).port}/ollama`
+  })
+  afterAll(async () => {
+    gateway.close()
+    await upstream.stop()
+  })
+
+  it('keeps /v1 for an Ollama behind a path prefix given without /v1, as v0.0.4 did', async () => {
+    const { server, url } = await startServer({ mode: 'proxy', upstream: gwUrl })
+    try {
+      await server.upstream.poll()
+      expect(server.snapshot(false).upstream).toMatchObject({ ok: true, api: 'ollama' })
+      const openai = new OpenAI({ baseURL: `${url}/v1`, apiKey: 'x' })
+      const r = await openai.chat.completions.create({
+        model: 'llama3.2:3b',
+        messages: [{ role: 'user', content: 'hello' }],
+      })
+      expect(r.choices[0]?.message.content).toBeTruthy()
+      expect(seenPaths).toContain('/v1/chat/completions')
+    } finally {
+      await server.stop()
+    }
+  })
+
+  it('asks /api/show about the mapped model, and leaves other pass-through requests alone', async () => {
+    const { server, url } = await startServer({
+      mode: 'proxy',
+      upstream: `${upUrl}/v1`,
+      modelMap: ['my-app-model=llama3.2:3b'],
+    })
+    const relay = await startServer({ mode: 'proxy', upstream: `${gwUrl}/v1`, modelMap: ['a=b'] })
+    try {
+      const show = await new Ollama({ host: url }).show({ model: 'my-app-model' })
+      expect(show.details).toBeTruthy()
+      // Through the gateway, which records what reached it: a model the map does not name
+      // passes unchanged.
+      await fetch(`${relay.url}/api/show`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{"model":"llama3.2:3b"}',
+      })
+      expect(shown.at(-1)).toBe('{"model":"llama3.2:3b"}')
+    } finally {
+      await server.stop()
+      await relay.server.stop()
+    }
+  })
+
+  it('answers a mock-only model in mixed mode when only a "*" pair would rename it', async () => {
+    const { server, url } = await startServer({
+      mode: 'mixed',
+      upstream: `${upUrl}/v1`,
+      models: ['mock-only:1b', 'llama3.2:3b'],
+      modelMap: ['*=llama3.2:3b'],
+    })
+    try {
+      await server.upstream.poll()
+      await new Ollama({ host: url }).generate({
+        model: 'mock-only:1b',
+        prompt: 'zzqx unknown words',
+      })
+      expect((await lastRecord(server)).match?.source).not.toBe('upstream')
+    } finally {
+      await server.stop()
+    }
+  })
+
+  it('polls an OpenAI-only upstream for its models alone, and not on every tick', async () => {
+    let hits = 0
+    const only = createServer((req, res) => {
+      hits++
+      if (req.url === '/v1/models') {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end('{"data":[{"id":"m"}]}')
+        return
+      }
+      res.writeHead(404).end()
+    })
+    await new Promise<void>((r) => only.listen(0, '127.0.0.1', r))
+    const { server } = await startServer({
+      mode: 'proxy',
+      upstream: `http://127.0.0.1:${(only.address() as AddressInfo).port}/v1`,
+    })
+    try {
+      await server.upstream.poll()
+      expect(server.snapshot(false).upstream).toMatchObject({ ok: true, api: 'openai' })
+      hits = 0
+      await server.upstream.poll()
+      expect(hits).toBe(1)
+      await server.upstream.pollSoon()
+      expect(hits).toBe(1)
+    } finally {
+      await server.stop()
+      only.close()
+    }
+  })
+})

@@ -315,9 +315,12 @@ export function applyEnv(base: MockConfig, env: Record<string, string | undefine
   return c
 }
 
+/** Ollama treats "name" and "name:latest" as one model. */
+const bareModel = (m: string): string => m.replace(/:latest$/, '')
+
 /**
  * The "app=upstream" pairs of a comma-separated list. A pair without both names, with a space
- * or a quote in one, or for a name already mapped, is dropped.
+ * or a quote in one, or for a model already mapped ("m" and "m:latest" are one), is dropped.
  */
 export function parseModelMap(v: string): string[] {
   const out: string[] = []
@@ -326,25 +329,25 @@ export function parseModelMap(v: string): string[] {
     const i = part.indexOf('=')
     const from = part.slice(0, i).trim()
     const to = part.slice(i + 1).trim()
-    if (i < 0 || !from || !to || /[\s"'=]/.test(from + to) || seen.has(from)) continue
-    seen.add(from)
+    if (i < 0 || !from || !to || /[\s"'=]/.test(from + to) || seen.has(bareModel(from))) continue
+    seen.add(bareModel(from))
     out.push(`${from}=${to}`)
   }
   return out
 }
 
-/** Ollama treats "name" and "name:latest" as one model. */
-const bareModel = (m: string): string => m.replace(/:latest$/, '')
-
-/** The model name to send upstream for `model`: its own pair, else "*", else unchanged. */
-export function mapModel(map: readonly string[], model: string): string {
+/**
+ * The model name to send upstream for `model`: its own pair, else "*" (unless `wildcard` is
+ * false), else unchanged.
+ */
+export function mapModel(map: readonly string[], model: string, wildcard = true): string {
   if (!model) return model
   let any = ''
   for (const pair of map) {
     const i = pair.indexOf('=')
     const from = pair.slice(0, i)
     if (bareModel(from) === bareModel(model)) return pair.slice(i + 1)
-    if (from === '*') any = pair.slice(i + 1)
+    if (from === '*' && wildcard) any = pair.slice(i + 1)
   }
   return any || model
 }

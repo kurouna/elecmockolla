@@ -422,6 +422,10 @@ export const ja: Record<Key, string> = {
   'set.copyEnv': '.env ファイルをコピー',
   'set.modesJoin': '{a}・{b}',
   'set.envCopied': '.env をコピーしました',
+  'set.envCopiedNoKey':
+    '.env をコピーしました（API キーは含みません。貼り付け先で手で追記してください）',
+  'set.envKeyHidden':
+    'API キーはここでもコピーでも •••••••• と表示されます。コピーした .env にはキーを手で追記してください。',
   'preset.instant.label': '即時',
   'preset.instant.desc': '待ち時間なし。ユニットテストや CI 向け。',
   'preset.fast.label': '高速 GPU',

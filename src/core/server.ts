@@ -11,7 +11,7 @@ import type {
   TestInput,
   TestResult,
 } from '../shared/types.ts'
-import { mapModel, maskKey, patchConfig } from './config.ts'
+import { mapModel, maskKey, openaiBase, patchConfig, upstreamRoot } from './config.ts'
 import { Engine, type Plan, type Prompt } from './engine.ts'
 import { EXPORT_FORMATS, exportRequests } from './export.ts'
 import {
@@ -172,6 +172,11 @@ const PROXY_APIS: Record<string, Api> = {
   'POST /v1/chat/completions': 'openai-chat',
   'POST /v1/completions': 'openai-completion',
   'POST /v1/embeddings': 'openai-embed',
+}
+
+/** The body to send upstream: as it came, unless the model map gave its model another name. */
+function renamed(raw: Buffer, obj: Obj, key: 'model' | 'name', to: string): Buffer {
+  return str(obj[key]) === to ? raw : Buffer.from(JSON.stringify({ ...obj, [key]: to }))
 }
 
 /** Message content may be a string or (OpenAI) an array of parts. */
@@ -597,6 +602,16 @@ export class MockServer {
 
   private knows(name: string): boolean {
     return this.models.some((m) => sameModel(m, name))
+  }
+
+  /**
+   * The upstream URL to forward to. An Ollama behind a path prefix and given without /v1 (its
+   * own root, as v0.0.4 took it) keeps its OpenAI API under /v1: the poll found /api/tags there.
+   */
+  private upstreamBase(): string {
+    const u = this.config.upstream
+    const prefixed = upstreamRoot(u) === u && openaiBase(u) === u
+    return prefixed && this.upstream.info?.api === 'ollama' ? `${u}/v1` : u
   }
 
   /** Whether the real Ollama has this model, as far as the last poll knows. */
@@ -1076,13 +1091,16 @@ export class MockServer {
     const signal = abortOnClose(res)
     try {
       if (!api) {
+        // An Ollama client asks /api/show about its model before using it, so that question
+        // names the model the map sends. Other pass-through requests (pull, delete) go as sent.
+        const show = method === 'POST' && p === '/api/show' && this.config.modelMap.length > 0
         await forward({
-          upstream: this.config.upstream,
+          upstream: this.upstreamBase(),
           upstreamKey: this.config.upstreamKey,
           method,
           path: forwardPath(req),
           headers: req.headers,
-          body: req,
+          body: show ? this.mappedShow(await readRaw(req)) : req,
           res,
           signal,
         })
@@ -1100,7 +1118,7 @@ export class MockServer {
       // upstream changes: rules, records and recordings keep the app's name.
       const asked = str(obj.model)
       const sent = mapModel(this.config.modelMap, asked)
-      const out = sent === asked ? raw : Buffer.from(JSON.stringify({ ...obj, model: sent }))
+      const out = renamed(raw, obj, 'model', sent)
       const generative = api !== 'embed' && api !== 'openai-embed'
       const parsed = generative ? parseRequest(api, obj) : null
       if (this.config.mode === 'mixed' && parsed && !parsed.empty) {
@@ -1108,15 +1126,17 @@ export class MockServer {
         if (replay) return await this.generate(api, req, res, body, replay)
         const plan = this.engine.plan(parsed.prompt)
         // A mock-only model the real Ollama does not have is answered here, fallback included.
+        // A "*" pair does not count here: it is for models the mock does not answer.
+        const named = mapModel(this.config.modelMap, asked, false)
         const mockOnly =
-          !!this.upstream.info?.ok && !this.upstreamHas(sent) && this.knows(parsed.prompt.model)
+          !!this.upstream.info?.ok && !this.upstreamHas(named) && this.knows(parsed.prompt.model)
         if (plan.match.source !== 'fallback' || mockOnly)
           return await this.generate(api, req, res, body, plan)
       }
       // Load and unload requests (an empty prompt) pass through unrecorded, as in mock mode.
       if (parsed?.empty) {
         await forward({
-          upstream: this.config.upstream,
+          upstream: this.upstreamBase(),
           upstreamKey: this.config.upstreamKey,
           method,
           path: forwardPath(req),
@@ -1133,6 +1153,19 @@ export class MockServer {
       else if (e instanceof UpstreamError) fail(res, 502, e.message)
       else throw e
     }
+  }
+
+  /** An /api/show body with its model (or Ollama's older `name`) renamed by the model map. */
+  private mappedShow(raw: Buffer): Buffer {
+    let obj: Obj = {}
+    try {
+      const v = parseJson(raw)
+      if (isObj(v)) obj = v
+    } catch {
+      return raw
+    }
+    const key = str(obj.model) ? 'model' : 'name'
+    return renamed(raw, obj, key, mapModel(this.config.modelMap, str(obj[key])))
   }
 
   /** Forwards one generation or embedding request and records it like a mock reply. */
@@ -1172,7 +1205,7 @@ export class MockServer {
       try {
         await this.relay(api, req, res, raw, parsed, signal, rec, sent)
       } finally {
-        void this.upstream.poll()
+        void this.upstream.pollSoon()
       }
     })
   }
@@ -1199,7 +1232,7 @@ export class MockServer {
     const chunks: string[] = []
     const thinkingChunks: string[] = []
     const result = await forward({
-      upstream: this.config.upstream,
+      upstream: this.upstreamBase(),
       upstreamKey: this.config.upstreamKey,
       method: req.method ?? 'POST',
       path: forwardPath(req),

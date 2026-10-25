@@ -418,6 +418,9 @@ export const en = {
   'set.copyEnv': 'Copy the .env file',
   'set.modesJoin': '{a} and {b}',
   'set.envCopied': '.env copied',
+  'set.envCopiedNoKey': '.env copied, without the API key: add it by hand where you paste it',
+  'set.envKeyHidden':
+    'The API key shows as ••••••••, here and in a copy: the copy needs the key added by hand.',
   'preset.instant.label': 'Instant',
   'preset.instant.desc': 'No delays at all. For unit tests and CI.',
   'preset.fast.label': 'Fast GPU',

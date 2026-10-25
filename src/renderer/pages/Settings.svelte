@@ -434,8 +434,15 @@ function modeKey(e: KeyboardEvent) {
         <div class="filehead">
           <span class="muted small">{t('set.envPreview')}</span>
           <span class="grow"></span>
-          <button class="btn sm ghost" title={t('set.copyEnv')} aria-label={t('set.copyEnv')} onclick={() => store.copy(preview, t('set.envCopied'))}><Icon name="copy" size={12} /></button>
+          <button
+            class="btn sm ghost"
+            title={t('set.copyEnv')}
+            aria-label={t('set.copyEnv')}
+            onclick={() => store.copy(preview, t(form.upstreamKey ? 'set.envCopiedNoKey' : 'set.envCopied'))}
+            ><Icon name="copy" size={12} /></button
+          >
         </div>
+        {#if form.upstreamKey}<p class="muted small">{t('set.envKeyHidden')}</p>{/if}
         <pre class="env">{preview}</pre>
       </div>
     </section>

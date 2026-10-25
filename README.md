@@ -287,7 +287,9 @@ Ollama's `/api/...`.
 Its models have their own names. **Settings › Mode › Model names** (`MOCKOLLA_MODEL_MAP`)
 renames the model on the way: `llama3.2:3b=gemini-2.5-flash, *=gemini-2.5-flash-lite` sends
 `gemini-2.5-flash` when your app asks for `llama3.2:3b`, and the other model for anything
-else. Only the request going upstream changes; the reply keeps the upstream's model name,
+else; `/api/show`, which Ollama clients ask before using a model, gets the same name. In mixed
+mode a `*` pair does not take models only the mock has: the mock still answers those. Only
+the request going upstream changes; the reply keeps the upstream's model name,
 while the dashboard, rules and recordings keep your app's (the inspector shows the name that
 was sent).
 

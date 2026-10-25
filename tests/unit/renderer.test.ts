@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sameData } from '../../src/renderer/lib/equal.ts'
+import { waterfallMoving } from '../../src/renderer/lib/waterfall.ts'
 
 // The editing pages ask sameData whether a draft still equals what main stored.
 describe('sameData', () => {
@@ -45,5 +46,25 @@ describe('sameData', () => {
     expect(sameData(null, {})).toBe(false)
     expect(sameData('a', 'a')).toBe(true)
     expect(sameData(1, true)).toBe(false)
+  })
+})
+
+// The dashboard's waterfall redraws every frame only while waterfallMoving says so.
+describe('waterfallMoving', () => {
+  const now = 100_000
+  const ended = (msAgo: number) => ({ t: { ended: now - msAgo } })
+
+  it('moves while a request runs, even with nothing in the history', () => {
+    expect(waterfallMoving(1, [], now, 30)).toBe(true)
+  })
+
+  it('moves while a finished bar is still inside the window', () => {
+    expect(waterfallMoving(0, [ended(60_000), ended(29_000)], now, 30)).toBe(true)
+  })
+
+  it('is still once every bar has left the window, or there never was one', () => {
+    expect(waterfallMoving(0, [ended(31_000), ended(90_000)], now, 30)).toBe(false)
+    expect(waterfallMoving(0, [], now, 30)).toBe(false)
+    expect(waterfallMoving(0, [ended(31_000)], now, 60)).toBe(true)
   })
 })

@@ -336,6 +336,9 @@ export function forward(o: ForwardOptions): Promise<ForwardResult> {
  * /api/ps is optional: when it fails, which models are loaded is unknown (null),
  * not "none".
  */
+/** How often an OpenAI-only upstream (no Ollama API) is asked for its models. */
+const OPENAI_POLL_MS = 30_000
+
 export class UpstreamWatch {
   info: UpstreamInfo | null = null
   private timer: NodeJS.Timeout | null = null
@@ -372,7 +375,7 @@ export class UpstreamWatch {
       checkedAt: 0,
     }
     void this.poll()
-    this.timer = setInterval(() => void this.poll(), this.intervalMs)
+    this.timer = setInterval(() => void this.pollSoon(), this.intervalMs)
     this.timer.unref()
   }
 
@@ -398,13 +401,33 @@ export class UpstreamWatch {
     return this.inflight
   }
 
+  /**
+   * Polls unless the upstream is an OpenAI-only server checked within the last
+   * OPENAI_POLL_MS: it has no loaded models to follow, and a hosted one counts every request
+   * against the key's rate limit.
+   */
+  pollSoon(): Promise<void> {
+    const i = this.info
+    if (i?.ok && i.api === 'openai' && Date.now() - i.checkedAt < OPENAI_POLL_MS)
+      return Promise.resolve()
+    return this.poll()
+  }
+
   private async check(url: string, key: string): Promise<void> {
     const root = upstreamRoot(url)
-    const [tags, version, ps] = await Promise.allSettled([
-      getJson(`${root}/api/tags`, key),
-      getJson(`${root}/api/version`, key),
-      getJson(`${root}/api/ps`, key),
-    ])
+    // A server that already showed it has no Ollama API is asked only for its models.
+    const openaiOnly = this.info?.ok === true && this.info.api === 'openai'
+    const none = Promise.reject(new Error('not an Ollama'))
+    none.catch(() => {})
+    const [tags, version, ps] = await Promise.allSettled(
+      openaiOnly
+        ? [none, none, none]
+        : [
+            getJson(`${root}/api/tags`, key),
+            getJson(`${root}/api/version`, key),
+            getJson(`${root}/api/ps`, key),
+          ],
+    )
     let next: Partial<UpstreamInfo>
     if (tags.status === 'fulfilled') {
       next = {

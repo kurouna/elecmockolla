@@ -242,3 +242,12 @@ describe('model map', () => {
     expect(mapModel(map, '')).toBe('')
   })
 })
+
+describe('model map, as Ollama names models', () => {
+  it('drops a second pair for the same model, :latest or not, and skips "*" when asked', () => {
+    expect(parseModelMap('m=a, m:latest=b')).toEqual(['m=a'])
+    expect(parseModelMap('m:latest=a, m=b')).toEqual(['m:latest=a'])
+    expect(mapModel(['*=w', 'm=a'], 'other', false)).toBe('other')
+    expect(mapModel(['*=w', 'm=a'], 'm', false)).toBe('a')
+  })
+})

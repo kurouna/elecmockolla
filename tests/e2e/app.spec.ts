@@ -147,8 +147,17 @@ test('leaving a page with unsaved edits is asked in the app, never refused silen
   await expect(ask).toBeHidden()
   await expect(s.page.locator('nav .nav.on')).toContainText('Rules')
   await expect(ttft).toHaveValue('70')
-  // Escape keeps the edits too.
+  // The question takes the keyboard: focus starts on "Keep editing" and Tab cannot leave it.
   await open(s.page, 'Requests')
+  const focused = () => s.page.evaluate(() => document.activeElement?.textContent?.trim() ?? '')
+  await expect.poll(focused).toBe('Keep editing')
+  for (const want of ['Discard and leave', 'Keep editing', 'Discard and leave']) {
+    await s.page.keyboard.press('Tab')
+    expect(await focused()).toBe(want)
+  }
+  await s.page.keyboard.press('Shift+Tab')
+  expect(await focused()).toBe('Keep editing')
+  // Escape keeps the edits too.
   await s.page.keyboard.press('Escape')
   await expect(ask).toBeHidden()
   await expect(s.page.locator('nav .nav.on')).toContainText('Rules')
