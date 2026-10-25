@@ -1,9 +1,11 @@
 # CLAUDE.md
 
-Guidance for AI agents (and humans) working in this repository.
-
 elecmockolla is a mock Ollama server (`src/core`) with an Electron 44 + Svelte 5 dashboard.
 MIT. Developed on Windows. Repository: github.com/kurouna/elecmockolla (branch `main`).
+
+Area-specific guidance lives in `.claude/rules/` and loads when you open a matching file:
+`core-server.md`, `builtin-rules.md` (the reply rules the mock serves), `main-ipc.md`,
+`renderer-ui.md`, `tests.md`, `release.md`.
 
 ## Commands
 
@@ -11,13 +13,13 @@ MIT. Developed on Windows. Repository: github.com/kurouna/elecmockolla (branch `
 npm install          # postinstall downloads Electron (install-electron)
 npm start            # the app (electron-vite dev); creates .env and rules.json in the project
 npm run serve        # the server alone, from source (node src/core/cli.ts serve)
-npm run verify       # biome + typecheck (node, web) + vitest - run before every commit
+npm run verify       # biome + typecheck (node, web) + vitest
 npm run build        # out/ ; test:e2e and screenshots need it
 npm run test:e2e     # Playwright drives the built app (tests/e2e)
 npm run package      # installers into release/ (electron-builder)
 npm run gen:icon     # build/icon.svg -> build/icon.png, resources/icons/icon.png
-npm run gen:earlier-defaults  # after changing a built-in rule (see Rules)
-npm run screenshots  # docs/screenshots, for the README and posts only - not a user feature
+npm run gen:earlier-defaults  # after changing a built-in reply rule
+npm run screenshots  # docs/screenshots, for the README and posts
 ```
 
 Single test: `npx vitest run tests/unit/server.test.ts -t "<name>"`.
@@ -25,107 +27,44 @@ Single test: `npx vitest run tests/unit/server.test.ts -t "<name>"`.
 ## Layout
 
 ```
-src/core/      the server. Pure Node, no dependencies, no Electron. Run by the CLI straight
-               from source, so: erasable TypeScript only, `.ts` import extensions.
-               config.ts (.env, presets, FAULT_MODES; no node imports - the UI uses it),
-               files.ts (disk), rules.ts (built-in rules, validation), default-rules.ts (the
-               chat, test-word, kindergarten-fact and ELEC rules), rules-merge.ts (offering
-               new and updated built-in rules to an existing file; the UI uses it),
-               earlier-defaults.ts (generated), engine.ts (matching, templates, {{calc}}),
-               server.ts (HTTP, pacing, faults, control API), writers.ts (wire formats),
-               scheduler.ts (slots + queue), monitor.ts (records, series), proxy.ts
-               (proxy/mixed modes: forwarding, reply parsing, upstream polling),
-               recordings.ts (recorded replies, matching keys), export.ts (JSON, HAR),
-               models.ts, text.ts, random.ts
-src/main/      Electron main: index.ts (window, IPC), host.ts (utility process),
-               server.worker.ts (the utility process entry), client.ts (playground, load
-               generator), capture.ts (screenshot mode)
+src/core/      the server: pure Node, no dependencies, no Electron. The CLI runs it straight
+               from source, so erasable TypeScript only and `.ts` import extensions
+src/main/      Electron main: window and IPC (index.ts), the server's utility process
+               (host.ts, server.worker.ts), playground and load generator (client.ts),
+               screenshot mode (capture.ts)
 src/preload/   window.mockolla, the only bridge
 src/shared/    types and the IPC contract (type-only, except channels.ts)
 src/renderer/  Svelte UI: lib/state.svelte.ts is the single store; pages/, components/
-tests/unit/    vitest; server tests use the official ollama and openai clients. By area:
-               server, api (model management, control API, OpenAI extras, test commands), parallel (slots
-               really run at once), proxy, recordings, engine, chat-rules and rule-coverage
-               (every built-in rule reachable, samples in rule-cases.ts), defaults, upgrade,
-               config, files, cli (spawns src/core/cli.ts), client (main's playground and
-               load generator), export, elec
-tests/e2e/     Playwright + Electron; each spec starts the app with its own folder and port
-tests/fixtures/ rules-v0.0.1.json: the rules file a released version wrote (upgrade tests)
+tests/unit/    vitest, one file per area; tests/e2e/ is Playwright on the built app
+tests/fixtures/ rules files earlier releases wrote (upgrade tests)
 scripts/       gen-icon, earlier-defaults, screenshots
 .github/       ci.yml (lint, typecheck, unit + e2e on Windows/macOS/Linux, package),
-               release.yml (tag vX.Y.Z -> verify -> GitHub pre-release with every build)
+               release.yml (tag vX.Y.Z -> verify -> GitHub pre-release)
 ```
 
-## Rules
+## Invariants
 
-- **Proxied bytes are never rewritten.** In proxy and mixed modes the reply goes to the client
-  as Ollama sent it; `ReplyReader` parses a copy for the record. Faults cut a reply, they do
-  not edit it.
-- **Wire compatibility first.** Any change to a response shape must keep the `ollama` and
-  `openai` client tests passing. Durations in Ollama replies are nanoseconds. Real Ollama
-  semantics win: e.g. a conversation ending in a `tool` message gets words, not the same tool
-  call again (`Prompt.afterTool`).
-- **The renderer is untrusted and offline**: sandboxed, CSP `connect-src 'self'`. Network and
-  files live in main; main validates every IPC argument (`toPlayground`, `normalizeRules`,
-  `patchConfig`). Never expose a generic channel.
-- **One source of settings**: `.env` via `core/config.ts`. The UI edits it, the CLI reads it.
-  `serializeEnv` keeps variables it does not manage.
-- **The server never blocks the UI**: it runs in a utility process and sends a snapshot every
-  200 ms. Snapshots are `$state.raw` in the renderer - replace, never mutate.
-- **Slots are truly parallel**: N requests on N slots take as long as one, in mock and proxy
-  modes (`tests/unit/parallel.test.ts` measures it). Never serialize request handling behind
-  a shared lock, one shared timer or a limited HTTP agent.
-- **Keep what crosses IPC small, and expect it to grow.** Rules and recordings will keep
-  growing: the UI gets recording summaries (pushed at most every 500 ms) and fetches one
-  recording when it is shown; long lists draw a bounded number of rows. The renderer must not
-  import `core/rules.ts` or `default-rules.ts` (it would bundle every built-in rule) - it gets
-  them from main. Compiled rule patterns are cached per rule object, so rules are replaced,
-  never edited in place.
-- **Built-in rules** (`default-rules.ts`): each intent is a Japanese and an English rule;
-  patterns read the first line only (`^[^\n]*`, no `m` flag). Order matters: exact inputs
-  (test words, arithmetic, simple facts) first, then requests (most specific first), small
-  talk last, so "誕生日プレゼントのおすすめ" is a recommendation, not a birthday. A captured
-  word must be what the reply claims it is (明日 is not a city). Every new rule gets a sample
-  prompt in `tests/unit/rule-cases.ts` - `rule-coverage.test.ts` fails for a built-in rule
-  without one, or one an earlier rule shadows - and `chat-rules.test.ts` gets prompts it
-  must NOT catch.
-- **Built-in rule changes reach existing files through the Rules page offer**
-  (`rules-merge.ts`): a new id is offered as new; a changed built-in rule is offered as an
-  update only to files that still hold an earlier version unedited (by fingerprint). After
-  changing a built-in rule: commit, run `npm run gen:earlier-defaults` (it reads the git
-  history), commit `earlier-defaults.ts`. `tests/unit/upgrade.test.ts` checks a real v0.0.1
-  file; add a fixture for a release when an upgrade path matters.
-- **Two languages**: every UI string goes through `t()` (`renderer/lib/i18n.svelte.ts`); add
-  the key to `locales/en.ts` and `locales/ja.ts` (the typecheck enforces both). `code` and
-  **bold** in a string need `<Rich>`. Server, CLI and `.env` comments stay English.
-- **Point to places as the UI names them, and link them**: a hint about something on another
-  page writes the path with the UI's own labels, "Chaos › Load generator" / "障害注入 ›
-  負荷ジェネレーター", and is a link: `<Hint>` puts `<GoTo>` links at `{a}`, `{b}` in the
-  translated text, and `store.goto(page, sectionId)` opens the page, scrolls to the section
-  and highlights it. Plain text (tooltips) still writes the path: 設定 › 接続.
-- **Reproducible replies**: every random choice in replies goes through a `Rng`; with a seed the
-  same prompt must give the same text.
-- **Regex speed is the user's responsibility**: a catastrophic pattern can stall the rule
-  tester and the server (documented in the README); do not add a regex sandbox.
+These hold across the whole repository; `.claude/rules/` has the details per area.
+
+- Wire compatibility first: a change to any response shape must keep the official `ollama`
+  and `openai` client tests passing.
+- Proxied bytes are never rewritten. In proxy and mixed modes the reply reaches the client as
+  Ollama sent it; faults cut a reply, they never edit it.
+- `.env` through `src/core/config.ts` is the only source of settings: the UI edits it, the CLI
+  reads it.
+- The renderer is untrusted and offline. Network and files live in main, which validates every
+  IPC argument; never expose a generic channel.
+- Requests are truly parallel: N requests on N slots take as long as one. Never serialize
+  request handling behind a shared lock, timer or capped agent.
+- Replies are reproducible: every random choice goes through an `Rng`, so a seed makes the same
+  prompt give the same text.
+- Two languages: every UI string goes through `t()` with a key in both locales. Server, CLI
+  and `.env` comments stay English.
 
 ## Workflow
 
 - Commit and push only when asked. Messages: `type(scope): English / 日本語`, body lines
   English / 日本語.
-- Before a commit: `npm run verify`; after UI or main changes also `npm run build` and
-  `npm run test:e2e`. CI must be green before a release.
-- New code gets unit tests in the matching file above, including what must NOT happen.
-  To find gaps: `npm i --no-save @vitest/coverage-v8@<vitest version>` then
-  `npx vitest run --coverage --coverage.provider=v8 --coverage.include='src/core/**'`.
-- Release: `npm version X.Y.Z --no-git-tag-version`, update the version note at the top of
-  the README, commit, push, wait for CI to pass, then tag `vX.Y.Z` and push the tag. The
-  workflow checks the tag against package.json, runs verify, and creates a pre-release
-  (unsigned-build notes in English and Japanese, then the generated changes) with every
-  build; a person promotes it to a full release.
-- Dependencies: `npx npm-check-updates`, then `npm install` and `npm update`. Held back on
-  purpose: vite 8 and @sveltejs/vite-plugin-svelte 7 (electron-vite 5 supports vite up to 7),
-  TypeScript 7 (svelte-check supports up to 6), @types/node above 24 (Electron 44 runs Node
-  24). Close any running copy of the app first, or Windows keeps Electron's files locked
-  (EBUSY).
-- README screenshots come from `npm run screenshots` (build first). Screenshot mode hides the
-  settings folder path and types `hello` into the rule tester.
+- Run `npm run verify` before a commit. UI or main changes also need `npm run build` and
+  `npm run test:e2e`, which run against the built app.
+- New code gets unit tests in the matching `tests/unit` file, including what must NOT happen.
