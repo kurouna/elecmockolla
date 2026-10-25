@@ -38,7 +38,7 @@ const tpsAvg = $derived.by(() => {
 })
 const totals = $derived(snap?.totals)
 const errRate = $derived(
-  totals && totals.requests ? ((totals.errors + totals.rejected) / totals.requests) * 100 : 0,
+  totals?.requests ? ((totals.errors + totals.rejected) / totals.requests) * 100 : 0,
 )
 const busy = $derived(snap?.slots.filter((s) => s.requestId !== null).length ?? 0)
 

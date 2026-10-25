@@ -460,11 +460,12 @@ table.grid td {
 table.grid tr.clickable {
   cursor: pointer;
 }
-table.grid tr.clickable:hover td {
-  background: var(--panel-2);
-}
 table.grid tr.selected td {
   background: var(--accent-soft);
+}
+/* Hover does not paint over the selected row: the pointer must not hide what is open. */
+table.grid tr.clickable:not(.selected):hover td {
+  background: var(--panel-2);
 }
 
 .num {

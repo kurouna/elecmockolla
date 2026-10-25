@@ -38,10 +38,22 @@ $effect(() => {
   document.title = `elecmockolla · ${t(`mode.${mode}`)}`
 })
 
+// The question about a held-back page switch takes the keyboard: Escape keeps the edits, and
+// Tab stays inside it, so nothing behind the scrim can be reached or pressed by mistake.
+let stay = $state<HTMLButtonElement | null>(null)
+$effect(() => {
+  if (store.pendingLeave) stay?.focus()
+})
+
 function onKey(e: KeyboardEvent) {
   if (store.pendingLeave) {
-    // The held-back page switch is the only thing to answer while it is on screen.
     if (e.key === 'Escape') store.keepEditing()
+    else if (e.key === 'Tab') {
+      e.preventDefault()
+      const b = [...document.querySelectorAll<HTMLButtonElement>('.dialog button')]
+      const i = b.indexOf(document.activeElement as HTMLButtonElement)
+      b[(i + (e.shiftKey ? b.length - 1 : 1)) % b.length]?.focus()
+    }
     return
   }
   if (!(e.ctrlKey || e.metaKey)) return
@@ -181,7 +193,7 @@ function onKey(e: KeyboardEvent) {
         <h2 id="leave-title">{t('common.unsaved')}</h2>
         <p>{t('common.discard')}</p>
         <div class="buttons">
-          <button class="btn sm primary" onclick={() => store.keepEditing()}>{t('common.stay')}</button>
+          <button class="btn sm primary" bind:this={stay} onclick={() => store.keepEditing()}>{t('common.stay')}</button>
           <button class="btn sm danger" onclick={() => store.discardAndLeave()}>{t('common.discardLeave')}</button>
         </div>
       </div>

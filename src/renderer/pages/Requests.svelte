@@ -33,9 +33,12 @@ const rows = $derived.by(() => {
     if (only === 'errors' && r.state !== 'error' && r.status < 400) return false
     if (only === 'faults' && !r.fault) return false
     if (!f) return true
-    const hay =
-      `${r.id} ${r.model} ${r.path} ${r.match?.name ?? ''} ${JSON.stringify(r.requestBody)} ${r.responseText}`.toLowerCase()
-    return hay.includes(f)
+    // What a row shows first, then the reply, and only then the body - which has to be
+    // serialised for every record the filter is tried against.
+    const shown = `${r.id} ${r.model} ${r.path} ${r.match?.name ?? ''} ${r.responseText}`
+    return (
+      shown.toLowerCase().includes(f) || JSON.stringify(r.requestBody).toLowerCase().includes(f)
+    )
   })
 })
 

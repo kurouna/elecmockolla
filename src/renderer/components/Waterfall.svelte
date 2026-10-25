@@ -18,7 +18,21 @@ const AXIS = 18
 let width = $state(600)
 let now = $state(Date.now())
 
+/** Bars move only while something runs or a finished bar is still inside the window. */
+const moving = $derived.by(() => {
+  const s = store.snapshot
+  if (s?.active.length) return true
+  const from = (s?.now ?? Date.now()) - windowSec * 1000
+  return store.history.some((r) => r.t.ended >= from)
+})
+
 $effect(() => {
+  if (!moving) {
+    // An empty timeline has nothing to interpolate: one update per snapshot is enough,
+    // instead of redrawing every bar 60 times a second for as long as the page is open.
+    now = store.snapshot?.now ?? Date.now()
+    return
+  }
   let raf = 0
   const tick = () => {
     const s = store.snapshot

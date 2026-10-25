@@ -190,11 +190,6 @@ export type RecordingSummary = Pick<
   preview: string
 }
 
-export interface RecordingsFile {
-  version: 1
-  recordings: Recording[]
-}
-
 /** What a real Ollama said it spent on a reply (its *_duration and *_count fields), in ms. */
 export interface ReportedTimings {
   loadMs: number

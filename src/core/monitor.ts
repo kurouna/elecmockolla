@@ -107,16 +107,14 @@ export class Monitor {
     rec.t.ended = Date.now()
     if (error) rec.error = error
     this.active.delete(rec.id)
-    // Received before the last reset: it is not in these totals, so it is not counted out.
-    if (this.carried.delete(rec.id)) {
-      this.history.push(rec)
-      this.unsent.push(rec)
-      return
+    // A request received before the last reset is not in these totals, so it is not counted
+    // out of them either. It is still a finished request: it is kept, sent and logged.
+    if (!this.carried.delete(rec.id)) {
+      if (state === 'done') this.totals.completed++
+      else if (state === 'aborted') this.totals.aborted++
+      else if (status === 503) this.totals.rejected++
+      else this.totals.errors++
     }
-    if (state === 'done') this.totals.completed++
-    else if (state === 'aborted') this.totals.aborted++
-    else if (status === 503) this.totals.rejected++
-    else this.totals.errors++
     this.history.push(rec)
     if (this.history.length > HISTORY) this.history.shift()
     this.unsent.push(rec)
