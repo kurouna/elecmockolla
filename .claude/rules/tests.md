@@ -7,7 +7,7 @@ paths:
 
 `tests/unit` is vitest; the server tests drive the official `ollama` and `openai` clients, so
 they catch wire-shape regressions. Areas: server, api (model management, control API, OpenAI
-extras, test commands), parallel (slots really run at once), proxy, recordings, engine,
+extras, test commands), parallel (slots really run at once), proxy, recordings, engine, monitor,
 chat-rules and rule-coverage, defaults, upgrade, config, files, cli (spawns
 `src/core/cli.ts`), client (main's playground and load generator), export, elec, renderer
 (the renderer's dependency-free helpers, such as `lib/equal.ts`).
