@@ -459,6 +459,10 @@ export const ja: Record<Key, string> = {
   'set.upstreamDown': '接続できません: {error}',
   'set.upstreamChecking': '確認中…',
   'set.upstreamApply': '保存すると接続します。',
+  'set.upstreamKey': 'API キー',
+  'set.upstreamKeyHelp':
+    'キーが必要な転送先向け。アプリが送るものの代わりに「Authorization: Bearer …」として送ります。空ならアプリのヘッダをそのまま渡します。.env には平文で保存されます。',
+  'set.upstreamKeyNone': 'なし',
   'set.portClash':
     'このサーバーと Ollama は同じポート {port} を使えません。このサーバーを別のポート（例: 11435）にして、アプリの接続先をそちらに向けてください。',
   'pg.toOllama': 'Ollama が返答',

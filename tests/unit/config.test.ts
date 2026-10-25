@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest'
 import {
   applyEnv,
   defaultConfig,
+  KEY_MASK,
+  maskKey,
   parseEnv,
   patchConfig,
   serializeEnv,
@@ -129,5 +131,47 @@ describe('Scheduler', () => {
     const p = s.acquire(2)
     s.resize(2, 5)
     await expect(p).resolves.toBe(1)
+  })
+})
+
+describe('upstream key', () => {
+  const key = 'sk-test-1234'
+  const withKey = applyEnv(defaultConfig(), { MOCKOLLA_UPSTREAM_KEY: key })
+
+  it('is read from .env, trimmed, and empty by default', () => {
+    expect(defaultConfig().upstreamKey).toBe('')
+    expect(withKey.upstreamKey).toBe(key)
+    expect(applyEnv(defaultConfig(), { MOCKOLLA_UPSTREAM_KEY: `  ${key}	` }).upstreamKey).toBe(key)
+    expect(applyEnv(withKey, { MOCKOLLA_UPSTREAM_KEY: '' }).upstreamKey).toBe('')
+  })
+
+  it('refuses a value that would break the header, keeping the key it had', () => {
+    // A header injection, a NUL and a DEL.
+    for (const bad of [`${key}\r\nX-Evil: 1`, 'a\u0000b', 'a\u007fb'])
+      expect(applyEnv(withKey, { MOCKOLLA_UPSTREAM_KEY: bad }).upstreamKey).toBe(key)
+  })
+
+  it('is never shown: the mask hides a set key and leaves "no key" as it is', () => {
+    expect(maskKey(withKey).upstreamKey).toBe(KEY_MASK)
+    expect(JSON.stringify(maskKey(withKey))).not.toContain(key)
+    const none = defaultConfig()
+    expect(maskKey(none)).toBe(none)
+  })
+
+  it('keeps the key when the mask comes back, e.g. a form saved as it was shown', () => {
+    expect(patchConfig(withKey, { upstreamKey: KEY_MASK }).upstreamKey).toBe(key)
+    expect(patchConfig(withKey, { ...maskKey(withKey), ttftMs: 5 })).toMatchObject({
+      upstreamKey: key,
+      ttftMs: 5,
+    })
+    expect(patchConfig(withKey, { upstreamKey: 'sk-new' }).upstreamKey).toBe('sk-new')
+    expect(patchConfig(withKey, { upstreamKey: '' }).upstreamKey).toBe('')
+  })
+
+  it('round-trips through .env, and a masked config writes no key', () => {
+    const env = parseEnv(serializeEnv(withKey))
+    expect(env.MOCKOLLA_UPSTREAM_KEY).toBe(key)
+    expect(applyEnv(defaultConfig(), env).upstreamKey).toBe(key)
+    expect(serializeEnv(maskKey(withKey))).not.toContain(key)
   })
 })

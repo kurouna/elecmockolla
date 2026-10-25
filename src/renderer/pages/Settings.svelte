@@ -1,6 +1,12 @@
 <script lang="ts">
 import { onMount } from 'svelte'
-import { normalizeUpstream, SERVER_MODES, serializeEnv } from '../../core/config.ts'
+import {
+  KEY_MASK,
+  maskKey,
+  normalizeUpstream,
+  SERVER_MODES,
+  serializeEnv,
+} from '../../core/config.ts'
 import type { MockConfig, Preset, ServerMode } from '../../shared/types.ts'
 import Icon from '../components/Icon.svelte'
 import Rich from '../components/Rich.svelte'
@@ -42,7 +48,8 @@ function current(): MockConfig {
 
 const dirty = $derived(!sameData(current(), store.config))
 const restartNeeded = $derived(form.host !== store.config?.host || form.port !== store.config?.port)
-const preview = $derived(serializeEnv(current()))
+// The preview is on screen: a key typed into the form shows as the mask here too.
+const preview = $derived(serializeEnv(maskKey(current())))
 
 let saving = $state(false)
 async function save() {
@@ -109,8 +116,14 @@ const portClash = $derived.by(() => {
   }
 })
 const upstreamSaved = $derived(
-  store.config?.mode !== 'mock' && store.config?.upstream === normalizeUpstream(form.upstream),
+  store.config?.mode !== 'mock' &&
+    store.config?.upstream === normalizeUpstream(form.upstream) &&
+    store.config?.upstreamKey === form.upstreamKey.trim(),
 )
+/** A saved key shows as the mask; focusing it selects the mask, so typing replaces it. */
+function selectMask(e: FocusEvent & { currentTarget: HTMLInputElement }) {
+  if (form.upstreamKey === KEY_MASK) e.currentTarget.select()
+}
 
 // --- speed presets fill the form; Save applies them like any other change -----------
 function usePreset(p: Preset) {
@@ -226,6 +239,24 @@ function modeKey(e: KeyboardEvent) {
                   <span class="chip red">{t('set.upstreamDown', { error: up.error })}</span>
                 {/if}
               </div>
+            </div>
+          </div>
+          <div class="row sub">
+            <div class="lab">
+              <b>{t('set.upstreamKey')}</b>
+              <small>{t('set.upstreamKeyHelp')}</small>
+            </div>
+            <div class="ctl wide">
+              <input
+                class="input mono"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label={t('set.upstreamKey')}
+                placeholder={t('set.upstreamKeyNone')}
+                bind:value={form.upstreamKey}
+                onfocus={selectMask}
+              />
             </div>
           </div>
           {#if portClash}<div class="warn">{t('set.portClash', { port: form.port })}</div>{/if}

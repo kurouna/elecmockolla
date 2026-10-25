@@ -34,6 +34,7 @@ export function defaultConfig(): MockConfig {
     rulesPath: 'rules.json',
     mode: 'mock',
     upstream: 'http://127.0.0.1:11434/v1',
+    upstreamKey: '',
     record: false,
     replay: false,
     recordingsPath: 'recordings.json',
@@ -41,6 +42,17 @@ export function defaultConfig(): MockConfig {
 }
 
 export const SERVER_MODES: readonly ServerMode[] = ['mock', 'proxy', 'mixed']
+
+/**
+ * What a set upstream key reads as outside main and the server process: the renderer is
+ * untrusted and the control API answers any local process, so neither gets the key.
+ * Sent back unchanged (a form saved as it was), it keeps the key.
+ */
+export const KEY_MASK = '••••••••'
+
+/** The config with the upstream key hidden, for the renderer and the control API. */
+export const maskKey = (c: MockConfig): MockConfig =>
+  c.upstreamKey ? { ...c, upstreamKey: KEY_MASK } : c
 
 /**
  * The server behind an upstream URL. The upstream is given the way OpenAI-style
@@ -127,6 +139,10 @@ export const ENV_KEYS: { [K in keyof MockConfig]: { key: string; doc: string } }
   upstream: {
     key: 'MOCKOLLA_UPSTREAM',
     doc: 'The real Ollama for proxy and mixed modes, as OpenAI clients take it (ending in /v1).',
+  },
+  upstreamKey: {
+    key: 'MOCKOLLA_UPSTREAM_KEY',
+    doc: 'API key for the upstream, sent as "Authorization: Bearer ...". Empty = no key.',
   },
   record: {
     key: 'MOCKOLLA_RECORD',
@@ -254,6 +270,15 @@ export function applyEnv(base: MockConfig, env: Record<string, string | undefine
     c.mode = serverMode as ServerMode
   const upstream = get('upstream')
   if (upstream) c.upstream = normalizeUpstream(upstream) || c.upstream
+  const upstreamKey = get('upstreamKey')
+  // A key is opaque: only the surrounding whitespace of a pasted value is dropped. Newlines
+  // and control characters would break the header, so a value holding one is refused. The
+  // mask is what the UI and the control API were shown: it means "keep the key".
+  if (upstreamKey !== undefined && upstreamKey !== KEY_MASK) {
+    const k = upstreamKey.trim()
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: exactly what must not be in a header
+    if (!/[\u0000-\u001f\u007f]/.test(k)) c.upstreamKey = k
+  }
   const record = get('record')
   if (record !== undefined) c.record = bool(record)
   const replay = get('replay')

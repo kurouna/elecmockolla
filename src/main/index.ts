@@ -9,7 +9,7 @@ import {
   ipcMain,
   shell,
 } from 'electron'
-import { applyPreset, PRESETS, patchConfig, presetById } from '../core/config.ts'
+import { applyPreset, maskKey, PRESETS, patchConfig, presetById } from '../core/config.ts'
 import { Engine } from '../core/engine.ts'
 import { EXPORT_FORMATS, exportRequests } from '../core/export.ts'
 import {
@@ -253,7 +253,7 @@ async function applyConfig(next: MockConfig): Promise<SaveResult<MockConfig>> {
       await host.stop()
       await startServer()
     } else host.setConfig(config)
-    return { ok: true, value: config }
+    return { ok: true, value: maskKey(config) }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
@@ -272,7 +272,7 @@ function registerIpc(): void {
       envPath: ENV_PATH,
       rulesPath,
       recordingsPath,
-      config,
+      config: maskKey(config),
       rules,
       recordings: summaries(),
       presets: [...PRESETS],
@@ -487,7 +487,7 @@ app.whenReady().then(async () => {
         // Host and port only change through a restart, which the UI does; keep main's.
         config = { ...change.config, host: config.host, port: config.port }
         saveEnv(ENV_PATH, config)
-        send(CH.config, config)
+        send(CH.config, maskKey(config))
       }
       if (change.rules) {
         rules = change.rules

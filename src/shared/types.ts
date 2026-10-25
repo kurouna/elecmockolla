@@ -52,6 +52,12 @@ export interface MockConfig {
   mode: ServerMode
   /** Base URL of the real Ollama used by the proxy and mixed modes. */
   upstream: string
+  /**
+   * Bearer token sent upstream, for an OpenAI-compatible endpoint that needs one. Empty
+   * forwards whatever the client sent; a key replaces it, since a client aimed at a local
+   * Ollama usually sends none or a placeholder.
+   */
+  upstreamKey: string
   /** Save every reply the real Ollama gives (proxy and mixed modes) to the recordings file. */
   record: boolean
   /** Answer recorded prompts with the recorded reply (mock and mixed modes). */

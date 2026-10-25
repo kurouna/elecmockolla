@@ -35,3 +35,6 @@ series), `proxy.ts` (proxy/mixed modes: forwarding, reply parsing, upstream poll
   and the server (the README says so). Do not add a regex sandbox.
 - `.env` through `config.ts` is the only source of settings; `serializeEnv` keeps variables
   it does not manage.
+- The upstream API key (`upstreamKey`) stays in main and the server process. The control API
+  answers with `maskKey(config)`, and `KEY_MASK` sent back means "keep the key", so a client
+  that reads the config and writes it back does not erase it.

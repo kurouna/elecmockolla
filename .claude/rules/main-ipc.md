@@ -14,6 +14,8 @@ IPC contract, type-only except `channels.ts`.
 
 - The renderer is untrusted, so main validates every IPC argument (`toPlayground`,
   `normalizeRules`, `patchConfig`). Never expose a generic channel.
+- Every config main sends to the renderer goes through `maskKey`: the UI never holds the
+  upstream API key, only the mask.
 - The server never blocks the UI: it runs in the utility process and sends a snapshot every
   200 ms.
 - Keep what crosses IPC small, and expect it to grow. Rules and recordings keep growing, so

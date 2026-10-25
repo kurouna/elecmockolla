@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 import { type Launched, launch, open } from './support.ts'
 
@@ -156,5 +157,36 @@ test('leaving a page with unsaved edits is asked in the app, never refused silen
   await expect(s.page.locator('nav .nav.on')).toContainText('Requests')
   await open(s.page, 'Rules')
   await expect(ttft).toHaveValue('')
+  expect(s.errors).toEqual([])
+})
+
+test('an upstream API key is saved to .env and never handed to the UI', async () => {
+  const secret = 'sk-e2e-secret-key'
+  await open(s.page, 'Settings')
+  await s.page.getByRole('radio', { name: /^Proxy/ }).click()
+  const key = s.page.locator('input[type="password"]')
+  await key.fill(secret)
+  // Not even what was just typed shows in the .env preview.
+  await expect(s.page.locator('pre.env')).toContainText('MOCKOLLA_UPSTREAM_KEY=••••••••')
+  await expect(s.page.locator('pre.env')).not.toContainText(secret)
+  await s.page.locator('.savebar button.primary').click()
+  await expect(s.page.locator('.savebar')).toHaveCount(0)
+  await expect(key).toHaveValue('••••••••')
+  const state = await s.page.evaluate(async () =>
+    JSON.stringify(
+      await (
+        globalThis as unknown as { mockolla: { getState(): Promise<unknown> } }
+      ).mockolla.getState(),
+    ),
+  )
+  expect(state).not.toContain(secret)
+  const { envPath } = JSON.parse(state) as { envPath: string }
+  expect(readFileSync(envPath, 'utf8')).toContain(`MOCKOLLA_UPSTREAM_KEY=${secret}`)
+  // Back as it was: no key, mock mode.
+  await key.fill('')
+  await s.page.getByRole('radio', { name: /^Mock/ }).click()
+  await s.page.locator('.savebar button.primary').click()
+  await expect(s.page.locator('.savebar')).toHaveCount(0)
+  expect(readFileSync(envPath, 'utf8')).toContain('MOCKOLLA_UPSTREAM_KEY=\n')
   expect(s.errors).toEqual([])
 })

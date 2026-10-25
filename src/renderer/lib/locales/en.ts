@@ -453,6 +453,10 @@ export const en = {
   'set.upstreamDown': 'Not reachable: {error}',
   'set.upstreamChecking': 'Checking…',
   'set.upstreamApply': 'Save to connect.',
+  'set.upstreamKey': 'API key',
+  'set.upstreamKeyHelp':
+    'For an endpoint that needs one. Sent as "Authorization: Bearer …" in place of what the app sends; empty passes the app\'s own header on. Kept in .env as plain text.',
+  'set.upstreamKeyNone': 'none',
   'set.portClash':
     'This server and Ollama cannot share port {port}. Give this server another port (e.g. 11435) and point your app at it.',
   'pg.toOllama': 'Ollama answers',

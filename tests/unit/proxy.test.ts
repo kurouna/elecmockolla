@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net'
 import { Ollama } from 'ollama'
 import OpenAI from 'openai'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { applyPreset, defaultConfig, presetById } from '../../src/core/config.ts'
+import { applyPreset, defaultConfig, KEY_MASK, presetById } from '../../src/core/config.ts'
 import { defaultRules } from '../../src/core/rules.ts'
 import { MockServer } from '../../src/core/server.ts'
 import type { MockConfig, RequestRecord } from '../../src/shared/types.ts'
@@ -305,6 +305,142 @@ describe('mixed mode', () => {
     } finally {
       await mixed.server.stop()
       await up.server.stop()
+    }
+  })
+})
+
+describe('an upstream that needs an API key', () => {
+  const KEY = 'sk-test-upstream'
+  /** Like a hosted OpenAI-compatible endpoint: /v1 only, and 401 without the right key. */
+  let cloud: ReturnType<typeof createServer>
+  let cloudUrl: string
+  const seen: (string | undefined)[] = []
+
+  beforeAll(async () => {
+    cloud = createServer((req, res) => {
+      // What the forwarded chats carried; the health polls run on their own timer.
+      if (req.url === '/v1/chat/completions') seen.push(req.headers.authorization)
+      if (req.headers.authorization !== `Bearer ${KEY}`) {
+        res.writeHead(401, { 'content-type': 'application/json' })
+        res.end('{"error":{"message":"invalid api key"}}')
+        return
+      }
+      if (req.url === '/v1/models') {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end('{"object":"list","data":[{"id":"gpt-cloud"}]}')
+        return
+      }
+      if (req.url === '/v1/chat/completions') {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(
+          JSON.stringify({
+            id: 'c1',
+            object: 'chat.completion',
+            created: 0,
+            model: 'gpt-cloud',
+            choices: [
+              {
+                index: 0,
+                message: { role: 'assistant', content: 'hi from the cloud' },
+                finish_reason: 'stop',
+              },
+            ],
+            usage: { prompt_tokens: 1, completion_tokens: 4, total_tokens: 5 },
+          }),
+        )
+        return
+      }
+      res.writeHead(404).end()
+    })
+    await new Promise<void>((r) => cloud.listen(0, '127.0.0.1', r))
+    cloudUrl = `http://127.0.0.1:${(cloud.address() as AddressInfo).port}/v1`
+  })
+  afterAll(() => {
+    cloud.close()
+  })
+
+  const chat = (base: string, auth?: string) =>
+    fetch(`${base}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...(auth ? { authorization: auth } : {}) },
+      body: JSON.stringify({ model: 'gpt-cloud', messages: [{ role: 'user', content: 'hi' }] }),
+    })
+
+  it('is reported down without the key, and live through /v1 with it', async () => {
+    const without = await startServer({ mode: 'proxy', upstream: cloudUrl })
+    const withKey = await startServer({ mode: 'proxy', upstream: cloudUrl, upstreamKey: KEY })
+    try {
+      await without.server.upstream.poll()
+      await withKey.server.upstream.poll()
+      expect(without.server.snapshot(false).upstream).toMatchObject({ ok: false })
+      expect(without.server.snapshot(false).upstream?.error).toContain('401')
+      expect(withKey.server.snapshot(false).upstream).toMatchObject({
+        ok: true,
+        api: 'openai',
+        models: ['gpt-cloud'],
+      })
+    } finally {
+      await without.server.stop()
+      await withKey.server.stop()
+    }
+  })
+
+  it("sends the key in place of the client's placeholder, and keeps it out of the record", async () => {
+    const { server, url } = await startServer({
+      mode: 'proxy',
+      upstream: cloudUrl,
+      upstreamKey: KEY,
+    })
+    try {
+      seen.length = 0
+      // The OpenAI client sends a key of its own; aimed at Ollama, it is a placeholder.
+      const r = await chat(url, 'Bearer ollama')
+      expect(r.status).toBe(200)
+      expect(
+        ((await r.json()) as { choices: { message: { content: string } }[] }).choices[0]?.message
+          .content,
+      ).toBe('hi from the cloud')
+      expect(seen.at(-1)).toBe(`Bearer ${KEY}`)
+      expect(JSON.stringify(await lastRecord(server))).not.toContain(KEY)
+    } finally {
+      await server.stop()
+    }
+  })
+
+  it("passes the client's own Authorization on when no key is set", async () => {
+    const { server, url } = await startServer({ mode: 'proxy', upstream: cloudUrl })
+    try {
+      seen.length = 0
+      expect((await chat(url, `Bearer ${KEY}`)).status).toBe(200)
+      expect((await chat(url)).status).toBe(401)
+      expect(seen.slice(-2)).toEqual([`Bearer ${KEY}`, undefined])
+    } finally {
+      await server.stop()
+    }
+  })
+
+  it('shows the control API a mask, and keeps the key when the mask comes back', async () => {
+    const { server, url } = await startServer({
+      mode: 'proxy',
+      upstream: cloudUrl,
+      upstreamKey: KEY,
+    })
+    try {
+      const shown = (await (await fetch(`${url}/_mock/config`)).json()) as Record<string, unknown>
+      expect(shown.upstreamKey).toBe(KEY_MASK)
+      expect(JSON.stringify(shown)).not.toContain(KEY)
+      // A client that reads the config, changes one field and sends it all back.
+      const r = await fetch(`${url}/_mock/config`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...shown, ttftMs: 1 }),
+      })
+      expect(JSON.stringify(await r.json())).not.toContain(KEY)
+      seen.length = 0
+      expect((await chat(url, 'Bearer ollama')).status).toBe(200)
+      expect(seen.at(-1)).toBe(`Bearer ${KEY}`)
+    } finally {
+      await server.stop()
     }
   })
 })

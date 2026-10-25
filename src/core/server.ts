@@ -11,7 +11,7 @@ import type {
   TestInput,
   TestResult,
 } from '../shared/types.ts'
-import { patchConfig } from './config.ts'
+import { maskKey, patchConfig } from './config.ts'
 import { Engine, type Plan, type Prompt } from './engine.ts'
 import { EXPORT_FORMATS, exportRequests } from './export.ts'
 import {
@@ -360,7 +360,11 @@ export class MockServer {
         this.url = `http://${host.includes(':') ? `[${host}]` : host}:${addr.port}`
         this.startedAt = Date.now()
         this.server = server
-        this.upstream.configure(this.config.mode !== 'mock', this.config.upstream)
+        this.upstream.configure(
+          this.config.mode !== 'mock',
+          this.config.upstream,
+          this.config.upstreamKey,
+        )
         resolve(this.url)
       })
     })
@@ -395,7 +399,7 @@ export class MockServer {
       this.models = this.models.filter((m) => after.includes(m) || !before.includes(m))
       for (const m of after) if (!this.models.includes(m)) this.addModel(m)
     }
-    if (this.server) this.upstream.configure(next.mode !== 'mock', next.upstream)
+    if (this.server) this.upstream.configure(next.mode !== 'mock', next.upstream, next.upstreamKey)
   }
 
   setRules(rules: RulesFile): void {
@@ -1074,6 +1078,7 @@ export class MockServer {
       if (!api) {
         await forward({
           upstream: this.config.upstream,
+          upstreamKey: this.config.upstreamKey,
           method,
           path: forwardPath(req),
           headers: req.headers,
@@ -1109,6 +1114,7 @@ export class MockServer {
       if (parsed?.empty) {
         await forward({
           upstream: this.config.upstream,
+          upstreamKey: this.config.upstreamKey,
           method,
           path: forwardPath(req),
           headers: req.headers,
@@ -1189,6 +1195,7 @@ export class MockServer {
     const thinkingChunks: string[] = []
     const result = await forward({
       upstream: this.config.upstream,
+      upstreamKey: this.config.upstreamKey,
       method: req.method ?? 'POST',
       path: forwardPath(req),
       headers: req.headers,
@@ -1455,13 +1462,13 @@ export class MockServer {
           this.onControlChange?.({ rules: this.engine.getRules() })
           return sendJson(res, 200, this.engine.getRules())
         case 'GET /_mock/config':
-          return sendJson(res, 200, this.config)
+          return sendJson(res, 200, maskKey(this.config))
         case 'PATCH /_mock/config': {
           const patch = await readBody(req)
           if (!isObj(patch)) throw new HttpError(400, 'expected an object')
           this.setConfig(patchConfig(this.config, patch))
           this.onControlChange?.({ config: this.config })
-          return sendJson(res, 200, this.config)
+          return sendJson(res, 200, maskKey(this.config))
         }
         case 'POST /_mock/fault': {
           const b = await readBody(req)

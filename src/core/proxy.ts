@@ -178,6 +178,8 @@ function tryJson(s: string): unknown {
 
 export interface ForwardOptions {
   upstream: string
+  /** Bearer token for the upstream; it replaces the client's own Authorization. */
+  upstreamKey?: string
   method: string
   /** Path and query, e.g. "/api/chat". */
   path: string
@@ -212,6 +214,9 @@ export function forward(o: ForwardOptions): Promise<ForwardResult> {
   for (const [k, v] of Object.entries(o.headers))
     if (v !== undefined && !HOP_BY_HOP.has(k.toLowerCase())) headers[k] = v
   headers[HOP_HEADER] = '1'
+  // The client is aimed at a local Ollama, so its own key (often absent or a placeholder)
+  // is not the one the upstream wants.
+  if (o.upstreamKey) headers.authorization = `Bearer ${o.upstreamKey}`
   if (Buffer.isBuffer(o.body)) headers['content-length'] = String(o.body.length)
   else if (o.headers['content-length']) headers['content-length'] = o.headers['content-length']
   else if (o.headers['transfer-encoding']) headers['transfer-encoding'] = 'chunked'
@@ -336,6 +341,7 @@ export class UpstreamWatch {
   info: UpstreamInfo | null = null
   private timer: NodeJS.Timeout | null = null
   private url = ''
+  private key = ''
   /** The poll in flight, which a second caller waits for rather than starting another. */
   private inflight: Promise<void> | null = null
   private intervalMs: number
@@ -345,15 +351,17 @@ export class UpstreamWatch {
   }
 
   /** Starts, retargets or stops polling. */
-  configure(enabled: boolean, url: string): void {
+  configure(enabled: boolean, url: string, key = ''): void {
     if (!enabled) {
       this.stop()
       this.info = null
       return
     }
-    if (url === this.url && this.timer) return
+    // A new key is a new answer to expect: an upstream that was 401 may now be live.
+    if (url === this.url && key === this.key && this.timer) return
     this.stop()
     this.url = url
+    this.key = key
     this.info = {
       url,
       ok: false,
@@ -385,18 +393,18 @@ export class UpstreamWatch {
   /** Polls now, e.g. right after a reply, so a newly loaded model shows up at once. */
   poll(): Promise<void> {
     if (!this.url) return Promise.resolve()
-    this.inflight ??= this.check(this.url).finally(() => {
+    this.inflight ??= this.check(this.url, this.key).finally(() => {
       this.inflight = null
     })
     return this.inflight
   }
 
-  private async check(url: string): Promise<void> {
+  private async check(url: string, key: string): Promise<void> {
     const root = upstreamRoot(url)
     const [tags, version, ps] = await Promise.allSettled([
-      getJson(`${root}/api/tags`),
-      getJson(`${root}/api/version`),
-      getJson(`${root}/api/ps`),
+      getJson(`${root}/api/tags`, key),
+      getJson(`${root}/api/version`, key),
+      getJson(`${root}/api/ps`, key),
     ])
     let next: Partial<UpstreamInfo>
     if (tags.status === 'fulfilled') {
@@ -418,7 +426,7 @@ export class UpstreamWatch {
       }
     } else {
       const v1 = url === root ? `${root}/v1` : url
-      const [models] = await Promise.allSettled([getJson(`${v1}/models`)])
+      const [models] = await Promise.allSettled([getJson(`${v1}/models`, key)])
       next =
         models.status === 'fulfilled'
           ? {
@@ -445,9 +453,9 @@ const items = (o: unknown, key: string): Obj[] =>
 const reason = (r: PromiseSettledResult<unknown>): string =>
   r.status === 'rejected' ? (r.reason instanceof Error ? r.reason.message : String(r.reason)) : ''
 
-async function getJson(url: string): Promise<unknown> {
+async function getJson(url: string, key = ''): Promise<unknown> {
   const r = await fetch(url, {
-    headers: { [HOP_HEADER]: '1' },
+    headers: key ? { [HOP_HEADER]: '1', authorization: `Bearer ${key}` } : { [HOP_HEADER]: '1' },
     signal: AbortSignal.timeout(2500),
   })
   if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`)
