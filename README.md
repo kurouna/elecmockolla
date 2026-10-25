@@ -267,6 +267,24 @@ into a real stream. Parallel slots still apply, so set them at least as high as 
 プロキシモードでは本物の Ollama にそのまま中継しつつ、通信をダッシュボードに記録します。
 混在モードはルールに一致したものだけダミーで返し、残りを Ollama に渡します（モックにしかないモデルは常にモックが返答します）。
 
+### An upstream that needs an API key
+
+For an OpenAI-compatible server that wants a key, set **Settings › Mode › API key** or
+`MOCKOLLA_UPSTREAM_KEY`. It goes upstream as `Authorization: Bearer …` in place of whatever
+your app sends (an app aimed at Ollama sends none, or a placeholder), and the connection check
+uses it too, so the server shows as connected rather than `401`. Left empty, your app's own
+`Authorization` header passes through as before.
+
+The key is stored in `.env` as plain text. The window, the `.env` preview and the control API
+(`/_mock/config`) only ever show `••••••••`, and sending that mask back keeps the key. Such a
+server usually answers only OpenAI-style requests (`/v1/...`), not Ollama's `/api/...`, and
+your app has to ask for a model name the server knows.
+
+鍵が必要な OpenAI 互換サーバーへ転送するときは、**設定 › 動作モード › API キー** か
+`MOCKOLLA_UPSTREAM_KEY` を設定します。アプリが送るものの代わりに `Authorization: Bearer …`
+として送り、接続確認にも使います。空ならアプリ自身のヘッダをそのまま渡します。鍵は `.env`
+に平文で保存され、画面・`.env` プレビュー・制御 API には `••••••••` としか表示されません。
+
 ## Recordings
 
 Record the real Ollama once, then play its replies back without it — for demos, videos and CI
@@ -315,6 +333,7 @@ ignored from the environment, so a machine that runs the real Ollama does not mo
 | `MOCKOLLA_FAULT_RATE` / `MOCKOLLA_FAULT_MODE` | `0` / `random` | random fault injection |
 | `MOCKOLLA_RULES` | `rules.json` | rules file, relative to `.env` |
 | `MOCKOLLA_MODE` / `MOCKOLLA_UPSTREAM` | `mock` / `http://127.0.0.1:11434/v1` | proxy and mixed modes, the real Ollama (its OpenAI URL; `/api/...` goes to the same server) |
+| `MOCKOLLA_UPSTREAM_KEY` | empty | API key sent upstream as `Authorization: Bearer …`; empty = pass the app's own header on |
 | `MOCKOLLA_RECORD` / `MOCKOLLA_REPLAY` | `false` / `false` | record Ollama's replies, play them back |
 | `MOCKOLLA_RECORDINGS` | `recordings.json` | recordings file, relative to `.env` |
 
