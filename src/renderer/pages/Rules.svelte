@@ -6,6 +6,7 @@ import Icon from '../components/Icon.svelte'
 import Recordings from '../components/Recordings.svelte'
 import ResponseEditor from '../components/ResponseEditor.svelte'
 import Rich from '../components/Rich.svelte'
+import { sameData } from '../lib/equal.ts'
 import { matchLabel } from '../lib/format.ts'
 import { t } from '../lib/i18n.svelte.ts'
 import { store } from '../lib/state.svelte.ts'
@@ -76,22 +77,22 @@ function takeOffer(add: boolean) {
   store.flash(add ? t('rules.newAdded', { n }) : t('rules.newSkipped'), 'info')
 }
 
-const dirty = $derived(JSON.stringify(draft) !== JSON.stringify(store.rules))
+const dirty = $derived(!sameData($state.snapshot(draft), store.rules))
 
 // Follow outside changes (the control API) while the draft is untouched.
-let rulesBase = JSON.stringify(store.rules)
+let rulesBase = store.rules
 $effect(() => {
-  const next = JSON.stringify(store.rules)
-  if (next !== rulesBase && JSON.stringify($state.snapshot(draft)) === rulesBase) {
+  const next = store.rules
+  if (next !== rulesBase && sameData($state.snapshot(draft), rulesBase)) {
     draft = clone(store.rules)
     if (!draft.rules.some((r) => r.id === selId)) selId = draft.rules[0]?.id ?? null
   }
   rulesBase = next
 })
 
-// Leaving with unsaved edits asks first.
+// Leaving with unsaved edits asks first (the shell puts the question on screen).
 onMount(() => {
-  store.leaveGuard = () => !dirty || confirm(t('common.discard'))
+  store.leaveGuard = () => !dirty
   return () => {
     store.leaveGuard = null
   }

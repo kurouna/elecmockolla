@@ -4,6 +4,7 @@ import { normalizeUpstream, SERVER_MODES, serializeEnv } from '../../core/config
 import type { MockConfig, Preset, ServerMode } from '../../shared/types.ts'
 import Icon from '../components/Icon.svelte'
 import Rich from '../components/Rich.svelte'
+import { sameData } from '../lib/equal.ts'
 import { type Key, t, tOr } from '../lib/i18n.svelte.ts'
 import { store } from '../lib/state.svelte.ts'
 
@@ -16,10 +17,10 @@ let seedText = $state(initial.seed === null ? '' : String(initial.seed))
 let modelsText = $state(initial.models.join(', '))
 
 // Follow outside changes (Chaos, Models) while the form is untouched.
-let base = $state(JSON.stringify(store.config))
+let base = store.config
 $effect(() => {
-  const next = JSON.stringify(store.config)
-  if (next !== base && JSON.stringify(current()) === base && store.config) {
+  const next = store.config
+  if (next !== base && sameData(current(), base) && store.config) {
     form = structuredClone($state.snapshot(store.config))
     seedText = form.seed === null ? '' : String(form.seed)
     modelsText = form.models.join(', ')
@@ -39,7 +40,7 @@ function current(): MockConfig {
   }
 }
 
-const dirty = $derived(JSON.stringify(current()) !== JSON.stringify(store.config))
+const dirty = $derived(!sameData(current(), store.config))
 const restartNeeded = $derived(form.host !== store.config?.host || form.port !== store.config?.port)
 const preview = $derived(serializeEnv(current()))
 
@@ -47,24 +48,24 @@ let saving = $state(false)
 async function save() {
   if (!dirty || saving) return
   saving = true
-  const sent = JSON.stringify(current())
+  const sent = current()
   try {
     const ok = await store.saveConfig(
       current(),
       restartNeeded ? t('set.savedRestarted') : t('set.savedApplied'),
     )
     if (!ok) return
-    base = JSON.stringify(store.config)
+    base = store.config
     // Show what was stored (main may have normalized a value), unless more was typed since.
-    if (JSON.stringify(current()) === sent) revert()
+    if (sameData(current(), sent)) revert()
   } finally {
     saving = false
   }
 }
 
-// Leaving with unsaved edits asks first.
+// Leaving with unsaved edits asks first (the shell puts the question on screen).
 onMount(() => {
-  store.leaveGuard = () => !dirty || confirm(t('common.discard'))
+  store.leaveGuard = () => !dirty
   return () => {
     store.leaveGuard = null
   }

@@ -39,6 +39,11 @@ $effect(() => {
 })
 
 function onKey(e: KeyboardEvent) {
+  if (store.pendingLeave) {
+    // The held-back page switch is the only thing to answer while it is on screen.
+    if (e.key === 'Escape') store.keepEditing()
+    return
+  }
   if (!(e.ctrlKey || e.metaKey)) return
   const item = NAV.find((n) => n.key === e.key)
   if (item) {
@@ -168,6 +173,20 @@ function onKey(e: KeyboardEvent) {
       </div>
     {/if}
   </main>
+
+  {#if store.pendingLeave}
+    <!-- A page switch the open page held back: asked in the app, so nothing fails silently. -->
+    <div class="scrim">
+      <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="leave-title">
+        <h2 id="leave-title">{t('common.unsaved')}</h2>
+        <p>{t('common.discard')}</p>
+        <div class="buttons">
+          <button class="btn sm primary" onclick={() => store.keepEditing()}>{t('common.stay')}</button>
+          <button class="btn sm danger" onclick={() => store.discardAndLeave()}>{t('common.discardLeave')}</button>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   {#if store.toast}
     {#key store.toast.id}
@@ -431,6 +450,37 @@ function onKey(e: KeyboardEvent) {
   }
   .banner .btn {
     margin-left: auto;
+  }
+  .scrim {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 200;
+  }
+  .dialog {
+    max-width: 420px;
+    padding: 16px 18px;
+    border-radius: var(--radius);
+    background: var(--panel);
+    border: 1px solid var(--line-2);
+    box-shadow: var(--shadow);
+  }
+  .dialog h2 {
+    margin: 0 0 6px;
+    font-size: 14px;
+  }
+  .dialog p {
+    margin: 0 0 14px;
+    color: var(--text-2);
+  }
+  .dialog .buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
   .toast {
     position: fixed;

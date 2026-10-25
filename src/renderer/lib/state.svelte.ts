@@ -52,24 +52,49 @@ class Store {
   history = $state.raw<RequestRecord[]>([])
   loadGen = $state<LoadGenStatus>({ running: false, sent: 0, ok: 0, failed: 0, total: 0 })
   #page = $state<Page>('dashboard')
-  /** Set by a page with unsaved edits: returns false to stay. */
+  /** Set by a page with edits to lose: returns false to hold a page switch back. */
   leaveGuard: (() => boolean) | null = null
+  /** A page switch a guard held back, for the shell to ask the user about. */
+  pendingLeave = $state<{ page: Page; section?: string | undefined } | null>(null)
   get page(): Page {
     return this.#page
   }
   set page(p: Page) {
-    if (p === this.#page) return
-    if (this.leaveGuard && !this.leaveGuard()) return
-    this.leaveGuard = null
-    this.#page = p
+    this.goto(p)
   }
   /**
    * Opens a page and scrolls to one of its sections (an element id), for links like
-   * "Chaos › Load generator". Does nothing when the page refuses to be left.
+   * "Chaos › Load generator". A page with unsaved edits is never left silently: the
+   * switch waits in `pendingLeave` until the user answers the shell's question.
    */
   goto(p: Page, section?: string): void {
-    this.page = p
-    if (this.#page !== p || !section) return
+    if (p === this.#page) {
+      if (section) this.#scrollTo(section)
+      return
+    }
+    if (this.leaveGuard && !this.leaveGuard()) {
+      this.pendingLeave = { page: p, section }
+      return
+    }
+    this.#enter(p, section)
+  }
+  /** Answers to that question: go, losing the edits, or stay and keep them. */
+  discardAndLeave(): void {
+    const next = this.pendingLeave
+    this.pendingLeave = null
+    if (!next) return
+    this.leaveGuard = null
+    this.#enter(next.page, next.section)
+  }
+  keepEditing(): void {
+    this.pendingLeave = null
+  }
+  #enter(p: Page, section?: string): void {
+    this.leaveGuard = null
+    this.#page = p
+    if (section) this.#scrollTo(section)
+  }
+  #scrollTo(section: string): void {
     // The page renders on the next frame; then its section can be found.
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
@@ -263,8 +288,9 @@ class Store {
   }
 
   open(page: Page, selected?: number): void {
-    this.page = page
+    // Select first, so the row is already chosen if the switch waits for an answer.
     if (selected !== undefined) this.selected = selected
+    this.goto(page)
   }
 }
 

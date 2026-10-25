@@ -14,6 +14,11 @@ live in main, reached only through `window.mockolla`.
   built-in rule. Main sends them instead. `core/config.ts` is safe (no node imports).
 - Long lists draw a bounded number of rows; recordings arrive as summaries, and one full
   recording is fetched when it is shown.
+- A page with unsaved edits sets `store.leaveGuard`, and the shell (`App.svelte`) asks the
+  user about the switch it held back. Never `window.confirm`: Chromium can suppress repeated
+  dialogs, which would refuse navigation with nothing on screen. Nothing may fail silently.
+- Whether a draft differs from what main stored is `sameData` (`lib/equal.ts`), not
+  `JSON.stringify`: key order and an absent-versus-undefined field are not edits.
 - Two languages: every UI string goes through `t()` (`lib/i18n.svelte.ts`) with the key added
   to both `locales/en.ts` and `locales/ja.ts` - the typecheck enforces both. `code` and
   **bold** inside a string need `<Rich>`.
